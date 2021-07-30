@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: PyMSQ
+Version: 0.1
+Summary: A Python package for estimating Mendelian sampling-related quantities
+Home-page: https://github.com/aromemusa/PyMSQ
+Author: Abdulraheem Musa, Norbert Reinsch
+Author-email: musa@fbn-dummerstorf.de, reinsch@fbn-dummerstorf.de
+License: MIT
+Download-URL: https://github.com/aromemusa/PyMSQ/blob/main/dist/PyMSQ-0.1.tar.gz
+Description: # PyMSQ: documentation
+        
+        PyMSQ is a python package for estimating Mendelian sampling-related quantities. PyMSQ is composed of one module [`msq`](./docs_msq.md) for simplicity. 
+        
+        Include the following code in your python file to use its functions:
+        
+        `from PyMSQ import msq`
+        
+        PyMSQ can be installed using `pip` with the command
+        
+        `pip install PyMSQ`
+        
+        This documentation describes the main functions of the PyMSQ package:
+        * Derivation of population-specific covariance matrices reflecting within-family linkage disequilibrium
+        * Estimation of Mendelian sampling variance for traits and aggregate genotype for multiple traits, as well as their covariances
+        * Derivation of similarity matrices based on Mendelian sampling values between individuals
+        * Estimation of selection criteria for genetic evaluation of plants and animals
+        
+        A tutorial on how to use PyMSQ's functions can be found [`here`](./Illustration_of_PyMSQ_functions.md).
+        
+Keywords: Mendelian sampling,variance,covariance,similarity,selection,haplotype diversity
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
