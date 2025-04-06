@@ -16,4 +16,4 @@ This documentation describes the main functions of the PyMSQ package:
 * Derivation of similarity matrices based on Mendelian sampling values between individuals
 * Estimation of selection criteria for genetic evaluation of plants and animals
 
-A tutorial on how to use PyMSQ's functions can be found [`here`](docs/Illustration of PyMSQ functions.md).
+A tutorial on how to use PyMSQ's functions can be found [`here`](docs/Illustration_of_PyMSQ_functions.md).
