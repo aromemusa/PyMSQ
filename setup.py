@@ -7,7 +7,7 @@ with open("README.md", "r", newline="", encoding="utf-8") as fh:
 setuptools.setup(
     name = 'PyMSQ',
 	packages = setuptools.find_packages(),
-    version = '0.1',
+    version = '0.1.1',
     license = 'MIT',
     description = 'A Python package for estimating Mendelian sampling-related quantities',
     long_description=long_description,

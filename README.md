@@ -1,6 +1,6 @@
 # PyMSQ: documentation
 
-PyMSQ is a python package for estimating Mendelian sampling-related quantities. PyMSQ is composed of one module [`msq`](docs/docs_msq.md) for simplicity. 
+PyMSQ is a python package for estimating Mendelian sampling-related quantities. PyMSQ is composed of one module [`msq`](docs/documentation_msq.md) for simplicity. 
 
 Include the following code in your python file to use its functions:
 
@@ -16,4 +16,4 @@ This documentation describes the main functions of the PyMSQ package:
 * Derivation of similarity matrices based on Mendelian sampling values between individuals
 * Estimation of selection criteria for genetic evaluation of plants and animals
 
-A tutorial on how to use PyMSQ's functions can be found [`here`](docs/Illustration_of_PyMSQ_functions.md).
+A tutorial on how to use PyMSQ's functions can be found [`here`](docs/Illustration of PyMSQ functions.md).
