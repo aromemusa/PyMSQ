@@ -33,5 +33,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.11",
     ],
     include_package_data=True,
-    package_data={"": ["data/*.txt"]},
+    package_data={
+        "PyMSQ": ["data/*.txt"],  # all .txt files in PyMSQ/data/
+    }
 )
