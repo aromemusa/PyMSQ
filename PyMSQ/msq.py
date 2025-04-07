@@ -4,27 +4,41 @@ import sys
 import math
 import numpy as np
 import pandas as pd
-# from scipy.linalg import blas
+import pkg_resources
 from scipy.stats import norm
 from numba import njit
 
+
 def load_package_data():
-    file_paths = {
-        'chromosome_data': 'data/chr.txt',
-        'marker_effect_data': 'data/effects.txt',
-        'genotype_data': 'data/phase.txt',
-        'group_data': 'data/group.txt',
-        'pedigree_data': 'data/pedigree.txt'
+    """
+    Load genetic data embedded within the package.
+    Returns:
+    --------
+    dict of pandas.DataFrame
+        Dictionary containing dataframes with keys 'chromosome', 'marker_effects',
+        'genotype', 'group', and 'pedigree'.
+    Raises:
+    -------
+    FileNotFoundError
+        If any of the data files are not found within the package.
+    """
+    data_files = {
+        'chromosome': 'data/chr.txt',
+        'marker_effects': 'data/effects.txt',
+        'genotype': 'data/phase.txt',
+        'group': 'data/group.txt',
+        'pedigree': 'data/pedigree.txt'
     }
     data_frames = {}
-    for key, file_path in file_paths.items():
+    for key, file_path in data_files.items():
         try:
-            if key in ['genotype_data', 'pedigree_data']:
-                data_frames[key] = pd.read_table(file_path, sep=" ", header=None)
-            else:
-                data_frames[key] = pd.read_table(file_path, sep=" ")
-        except FileNotFoundError as err:
-            raise FileNotFoundError(f"Data file '{file_path}' not found.") from err
+            with pkg_resources.resource_stream(__name__, file_path) as stream:
+                if key in ['genotype', 'pedigree']:
+                    data_frames[key] = pd.read_table(stream, sep=" ", header=None)
+                else:
+                    data_frames[key] = pd.read_table(stream, sep=" ")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Data file {file_path} not found in package resources.")
     return data_frames
 
 if __name__ == "__main__":
