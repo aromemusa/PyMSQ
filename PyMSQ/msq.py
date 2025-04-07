@@ -10,11 +10,11 @@ from numba import njit
 
 def load_package_data():
     file_paths = {
-        'chromosome_data': 'chr.txt',
-        'marker_effect_data': 'effects.txt',
-        'genotype_data': 'phase.txt',
-        'group_data': 'group.txt',
-        'pedigree_data': 'pedigree.txt'
+        'chromosome_data': 'data/chr.txt',
+        'marker_effect_data': 'data/effects.txt',
+        'genotype_data': 'data/phase.txt',
+        'group_data': 'data/group.txt',
+        'pedigree_data': 'data/pedigree.txt'
     }
     data_frames = {}
     for key, file_path in file_paths.items():
