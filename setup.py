@@ -14,7 +14,7 @@ setup(
     url="https://github.com/aromemusa/PyMSQ",
     packages=find_packages(),
     license="MIT",
-    download_url="https://github.com/aromemusa/PyMSQ/dist/PyMSQ-0.1.2.tar.gz",
+    download_url="https://github.com/aromemusa/PyMSQ/dist/PyMSQ-0.1.1.tar.gz",
     keywords=["Mendelian sampling", "variance", "covariance", "similarity", "selection", "haplotype diversity"],
     python_requires=">=3.8",
     install_requires=[
