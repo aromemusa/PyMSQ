@@ -22,23 +22,21 @@ def load_package_data():
     FileNotFoundError
         If any of the data files are not found within the package.
     """
-    data_files = {
-        'chromosome': 'data/chr.txt',
-        'marker_effects': 'data/effects.txt',
-        'genotype': 'data/phase.txt',
-        'group': 'data/group.txt',
-        'pedigree': 'data/pedigree.txt'
-    }
     data_frames = {}
     for key, file_path in data_files.items():
         try:
+            # Open the file as a stream from the installed package resources
             with pkg_resources.resource_stream(__name__, file_path) as stream:
+                # For genotype/pedigree, we assume no header; adjust as needed
                 if key in ['genotype', 'pedigree']:
                     data_frames[key] = pd.read_table(stream, sep=" ", header=None)
                 else:
                     data_frames[key] = pd.read_table(stream, sep=" ")
         except FileNotFoundError:
-            raise FileNotFoundError(f"Data file {file_path} not found in package resources.")
+            raise FileNotFoundError(
+                f"Data file '{file_path}' not found in package resources. "
+                "Ensure it is listed under 'package_data' in setup.py and exists in 'PyMSQ/data/'."
+            )
     return data_frames
 
 if __name__ == "__main__":
