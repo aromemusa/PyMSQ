@@ -28,11 +28,11 @@ def load_package_data():
         If any of the data files are not found in the package resources.
     """
     data_files = {
-        'chromosome':     'data/chr.txt',
-        'marker_effects': 'data/effects.txt',
-        'genotype':       'data/phase.txt',
-        'group':          'data/group.txt',
-        'pedigree':       'data/pedigree.txt'
+    'chromosome_data':     'data/chr.txt',
+    'marker_effect_data':  'data/effects.txt',
+    'genotype_data':       'data/phase.txt',
+    'group_data':          'data/group.txt',
+    'pedigree_data':       'data/pedigree.txt'
     }
     data_frames = {}
     for key, file_path in data_files.items():
