@@ -9,35 +9,51 @@ from scipy.stats import norm
 from numba import njit
 
 
+
 def load_package_data():
     """
-    Load genetic data embedded within the package.
-    Returns:
-    --------
-    dict of pandas.DataFrame
-        Dictionary containing dataframes with keys 'chromosome', 'marker_effects',
-        'genotype', 'group', and 'pedigree'.
-    Raises:
+    Load genetic data embedded within the package and return them in a dictionary.
+    Returns
     -------
+    dict of pandas.DataFrame
+        Keys:
+            - 'chromosome' -> chromosome map data
+            - 'marker_effects' -> marker effects for traits
+            - 'genotype' -> phased genotype matrix
+            - 'group' -> group/classification data
+            - 'pedigree' -> pedigree information
+    Raises
+    ------
     FileNotFoundError
-        If any of the data files are not found within the package.
+        If any of the data files are not found in the package resources.
     """
+    data_files = {
+        'chromosome':     'data/chr.txt',
+        'marker_effects': 'data/effects.txt',
+        'genotype':       'data/phase.txt',
+        'group':          'data/group.txt',
+        'pedigree':       'data/pedigree.txt'
+    }
     data_frames = {}
     for key, file_path in data_files.items():
         try:
-            # Open the file as a stream from the installed package resources
+            # Read data from the package resource as a stream:
             with pkg_resources.resource_stream(__name__, file_path) as stream:
-                # For genotype/pedigree, we assume no header; adjust as needed
+                # For genotype/pedigree, assume no header; for others, default to standard usage
                 if key in ['genotype', 'pedigree']:
-                    data_frames[key] = pd.read_table(stream, sep=" ", header=None)
+                    df = pd.read_table(stream, sep=" ", header=None)
                 else:
-                    data_frames[key] = pd.read_table(stream, sep=" ")
+                    df = pd.read_table(stream, sep=" ")
+
+                data_frames[key] = df
         except FileNotFoundError:
+            # If pkg_resources fails to open, it raises a FileNotFoundError
             raise FileNotFoundError(
                 f"Data file '{file_path}' not found in package resources. "
-                "Ensure it is listed under 'package_data' in setup.py and exists in 'PyMSQ/data/'."
+                "Check that it exists in 'PyMSQ/data/' and is listed under package_data in setup.py."
             )
     return data_frames
+
 
 if __name__ == "__main__":
     load_package_data()
