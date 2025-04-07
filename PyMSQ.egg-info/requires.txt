@@ -1,0 +1,4 @@
+numpy<1.25
+pandas
+scipy
+numba<0.58
