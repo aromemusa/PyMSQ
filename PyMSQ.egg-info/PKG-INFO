@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyMSQ
 Version: 0.1.1
 Summary: A Python package for estimating Mendelian sampling-related quantities
@@ -17,6 +17,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+Requires-Dist: numpy<1.25
+Requires-Dist: pandas
+Requires-Dist: scipy
+Requires-Dist: numba<0.58
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # PyMSQ: Estimating Mendelian Sampling-Related Quantities in Python
 PyMSQ is an open-source Python package that enables breeders, geneticists, and quantitative biologists to estimate Mendelian sampling–related metrics—including variance, covariance, and haplotype-based similarities—in both plant and animal species. For simplicity, PyMSQ consists of a single module, [`msq`](docs/documentation_msq.md). 
