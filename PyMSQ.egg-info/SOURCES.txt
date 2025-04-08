@@ -1,0 +1,14 @@
+README.md
+setup.py
+PyMSQ/__init__.py
+PyMSQ/msq.py
+PyMSQ.egg-info/PKG-INFO
+PyMSQ.egg-info/SOURCES.txt
+PyMSQ.egg-info/dependency_links.txt
+PyMSQ.egg-info/requires.txt
+PyMSQ.egg-info/top_level.txt
+PyMSQ/data/chr.txt
+PyMSQ/data/effects.txt
+PyMSQ/data/group.txt
+PyMSQ/data/pedigree.txt
+PyMSQ/data/phase.txt
