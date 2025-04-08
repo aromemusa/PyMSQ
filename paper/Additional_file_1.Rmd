@@ -1,0 +1,527 @@
+---
+title: "An R script to generate Figs. 1 - 3 and Performance Comparison Tables"
+author: "Musa AA and Reinsch N"
+date: "08-04-2025"
+output:
+  pdf_document: default
+  html_document: default
+  
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)  # Prevent scientific notation on axes
+
+```
+
+# Overview
+This document loads data, processes it, and generates three figures along with several performance comparison tables:
+
+1. Figure 1: Density plots of Mendelian sampling variances and trait correlations.
+
+2. Figure 2: Similarity matrices and Euclidean clustering of the matrices for the aggregate genotype of milk traits.
+
+3. Figure 3: Benchmark plots comparing computation time and memory usage.
+
+4. Performance Comparison Tables 1 and 2: Summaries from the same benchmark dataset used in Figure 3. These tables report the mean computation time (in minutes) and peak memory usage (in GB) for PyMSQ and gamevar.
+
+5. Performance Table 3: Benchmarking of similarity matrices using PyMSQ.
+
+
+# 1. Density Plots
+### Import Packages 
+We load required libraries 
+
+```{r, message=F, warning=F}
+library(ggplot2)      # For creating plots
+library(reshape2)     # For reshaping data
+library(corrplot)     # For correlation plots
+require(RColorBrewer) # For color palettes
+library(pheatmap)     # For heatmaps
+library(ggpubr)       # For arranging ggplot figures
+library(plyr)         # For data manipulation
+library(knitr)        # For document generation
+library(reticulate)   # For interfacing with Python
+```
+
+### Import Data from PyMSQ
+
+```{r, message=F, warning=F}
+# Replace "pymsq_dev" with the conda environment or virtualenv name.
+# use_condaenv("pymsq_dev", required = TRUE)
+# py_config()  # confirm your environment is active
+
+msq <- import("PyMSQ")
+data <- msq$load_package_data()  # now you're set to proceed below
+
+
+data <- msq$load_package_data()
+gmap <- data[["chromosome_data"]]        # genetic map
+meff <- data[["marker_effect_data"]]     # marker effects 
+gmat <- data[["genotype_data"]]          # phased genotype 
+group <- data[["group_data"]]            # group data 
+ped <- data[["pedigree_data"]] 
+
+# define number of traits and index weight
+no_traits <- ncol(meff)                 # 3 traits
+index_wt <- c(1, 1, 1)
+```
+
+
+### Compute Mendelian (co-)variance and correlation using PyMSQ
+```{r, message=F, warning=F, results='hide'}
+# Derive population covariance matrix for each chromosome
+exp_ldmat <- msq$expldmat(gmap = gmap, group = group, mposunit = "cM")
+
+# Compute Mendelian (co-)variance
+msvmsc <- msq$msvarcov(gmat, gmap, meff, exp_ldmat = exp_ldmat, group = group,
+                   indwt = index_wt, progress = TRUE)
+
+# Compute Mendelian correlation
+mscorr <- msq$msvarcov_corr(msvmsc) 
+```
+### Prepare and Plot the Density Data
+We extract, reshape, and plot the data:
+
+```{r, message=F, warning=F, results='hide'}
+# Extract relevant columns
+msv_traits <- data.frame(msvmsc[, c("fat", "protein", "pH")])
+
+# Compute coefficient of variation for each column
+round(sapply(msv_traits, function(x) sd(x) / mean(x)) * 100, 2)
+
+mscorr_traits <- data.frame(mscorr[, c("protein_fat", "pH_fat", "pH_protein")])
+
+# Compute mean correlation
+round(sapply(mscorr_traits, function(x) mean(x)), 2) 
+
+# Compute range of correlations
+round(sapply(mscorr_traits, function(x) range(x)), 3)
+
+# Compute percentage of negative values
+round(sapply(mscorr_traits, function(x) (sum(x < 0)/265)*100), 1)
+
+# Reshape data
+df_msv <- melt(msv_traits)
+colnames(df_msv) <- c("Trait", "Variance")
+df_mscorr <- melt(mscorr_traits)
+colnames(df_mscorr) <- c("Trait", "Correlation")
+
+# Create density plots
+plot1 <- ggplot(df_msv, aes(Variance, color = Trait)) +
+  stat_density(geom = "line", position = "identity") +
+  theme_classic() +
+  theme(legend.position = "top") +
+  scale_color_manual(values = c("black", "blue", "red")) +
+  ylab("Density")
+
+plot2 <- ggplot(df_mscorr, aes(Correlation, color = Trait)) +
+  stat_density(geom = "line", position = "identity") +
+  theme_classic() +
+  theme(legend.position = "top") +
+  scale_color_manual(values = c("black", "blue", "red")) +
+  ylab("Density") +
+  scale_x_continuous(limits = c(-0.3, 1), breaks = seq(-0.25, 1, by = 0.25))
+
+```
+
+### Save and Display Figure 1
+We combine the density plots and save them as a TIFF file. We then embed the resulting image:
+```{r Figure1, fig.cap="Density plots of Mendelian sampling variances and trait correlations. Panel A displays the variance in fat yield (FY, kg), protein yield (PY, kg), and pH (mol/L). Panel B shows correlations between these traits.", echo=FALSE, out.width="100%"}
+png("Figure1.png", width = 8, height = 3, units = 'in', res = 700)
+ggarrange(plot1, plot2, labels = c("A", "B"), ncol = 2, nrow = 1)
+dev.off()
+
+knitr::include_graphics("Figure1.png")
+```
+
+
+# 2. Similarity Matrices
+We then derive similarity matrices.
+```{r, message=F, warning=F, results='hide'}
+# Derive similarity matrix
+sim <- msq$simmat(gmat, gmap, meff, group = group, exp_ldmat = exp_ldmat, 
+              indwt = index_wt, save=TRUE, progress = TRUE)[[1]]
+# Standardize the similarity matrix
+std_sim <- cov2cor(sim)
+
+# get the range of values from both matrices
+sim_without_diag <- sim
+diag(sim_without_diag) <- NA
+range(sim_without_diag, na.rm = TRUE)
+
+std_sim_without_diag <- std_sim
+diag(std_sim_without_diag) <- NA
+range(std_sim_without_diag, na.rm = TRUE)
+
+# find the minimum value in sim and check the corresponding value in std_sim
+minVal <- min(sim_without_diag, na.rm = TRUE)
+minPos <- which(sim_without_diag == minVal, arr.ind = TRUE)
+correspondingPos <- std_sim[minPos[1], minPos[2]]
+
+```
+
+
+### Save and Display Figure 2
+```{r message=F, warning=F}
+# Determine number of individuals within each paternal half-sib family
+pedigree <- data[["pedigree_data"]][-1, ] 
+ped <- as.data.frame(pedigree[,2])
+no <- NULL
+for (i in 1:length(unique(ped[, 1]))) {
+  first <- length(which(ped[, 1] == i))
+  if (i == 1) {
+    no <- c(no, first)
+  } else {
+    no <- c(no, first + no[i-1])
+  }
+}
+
+png("Figure2.png", width = 8, height = 4, units = 'in', res = 700)
+par(mfrow = c(1, 2), oma = c(0, 0, 0, 0.1) + 0.1, mar = c(0, 0, 0, 0) + 0.1)
+cols <- brewer.pal(9, "Blues")
+corrplot(sim, is.corr = FALSE, method = "color", cl.lim = range(sim), 
+         cl.digits = 1, cl.cex = 0.80, tl.col = "black", tl.pos = "n", 
+         col = cols, cl.align.text = "c", mar = c(0, 0, 1, 0)) -> p
+corrRect(p, c(1, no), col = "red")
+
+corrplot(std_sim, is.corr = FALSE, method = "color", cl.lim = range(std_sim), 
+         cl.digits = 1, cl.cex = 0.80, tl.col = "black", tl.pos = "n", 
+         col = cols, cl.align.text = "c", mar = c(0, 0, 1, 0)) -> p
+corrRect(p, c(1, no), col = "red")
+
+mtext(expression(bold("A")), side = 3, outer = TRUE, cex = 1, las = 0, line = -1, adj = 0)
+mtext(expression(bold("B")), at = 0.52, side = 3, outer = TRUE, cex = 1, las = 0, line = -1)
+
+dev.off()
+```
+Now we display Figure 2:
+```{r Figure2, fig.cap="Unstandardized (A) and standardized (B) similarity matrices for the aggregate genotype of some milk traits for 265 cows from five half-sib families (separated by red lines).", echo=FALSE, out.width="100%"}
+knitr::include_graphics("Figure2.png")
+
+```
+
+# 3. Benchmark Plots
+We then process benchmark data (computation time and memory usage) and generate a 2×2 panel plot.
+
+```{r message=F, warning=F}
+library(dplyr)
+library(ggplot2)
+
+# Read csv files
+perf_ind <- read.csv("performance_analysis.csv")
+perf_mark <- read.csv("performance_analysis_mark.csv")
+
+# Compute computation time (convert seconds to minutes) and its SD
+time_ind_summary <- perf_ind %>%
+  group_by(no_individuals) %>%
+  summarise(
+    PyMSQ_mean = mean(time_PyMSQ, na.rm = TRUE) / 60,
+    PyMSQ_sd   = sd(time_PyMSQ, na.rm = TRUE) / 60,
+    gamevar_mean = mean(time_gamevar, na.rm = TRUE) / 60,
+    gamevar_sd   = sd(time_gamevar, na.rm = TRUE) / 60
+  )
+
+# Compute peak memory usage (GB) and its SD
+mem_ind_summary <- perf_ind %>%
+  group_by(no_individuals) %>%
+  summarise(
+    PyMSQ_mean = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
+    PyMSQ_sd   = sd(peak_memory_usage_PyMSQ, na.rm = TRUE),
+    gamevar_mean = mean(peak_memory_usage_gamevar, na.rm = TRUE),
+    gamevar_sd   = sd(peak_memory_usage_gamevar, na.rm = TRUE)
+  )
+
+# Compute computation time (in minutes) & its SD (markers)
+time_mark_summary <- perf_mark %>%
+  group_by(no_markers) %>%
+  summarise(
+    PyMSQ_mean = mean(time_PyMSQ, na.rm = TRUE) / 60,
+    PyMSQ_sd   = sd(time_PyMSQ, na.rm = TRUE) / 60,
+    gamevar_mean = mean(time_gamevar, na.rm = TRUE) / 60,
+    gamevar_sd   = sd(time_gamevar, na.rm = TRUE) / 60
+  )
+
+# Compute peak memory usage (in GB) & its SD (markers)
+mem_mark_summary <- perf_mark %>%
+  group_by(no_markers) %>%
+  summarise(
+    PyMSQ_mean = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
+    PyMSQ_sd   = sd(peak_memory_usage_PyMSQ, na.rm = TRUE),
+    gamevar_mean = mean(peak_memory_usage_gamevar, na.rm = TRUE),
+    gamevar_sd   = sd(peak_memory_usage_gamevar, na.rm = TRUE)
+  )
+
+```
+### Save and Display Benchmark Plot (Figure 3)
+
+```{r, message=F, warning=F, results='hide'}
+png("Figure3.png", width = 9, height = 8, units = "in", res = 700)
+par(mfrow = c(2, 2), oma = c(5,3,1,4.6)+0.1, mar = c(2,1,1,0)+0.1)
+
+# Panel A: Computation Time vs. Individuals
+with(time_ind_summary, {
+  plot(no_individuals, PyMSQ_mean, type = "l", col = "blue",
+       ylim = range(c(PyMSQ_mean - PyMSQ_sd, PyMSQ_mean + PyMSQ_sd,
+                      gamevar_mean - gamevar_sd, gamevar_mean + gamevar_sd)),
+       xlab = "", ylab = "Time (min)", xaxt = "n", yaxt = "n")
+  axis(2, col.axis = "black", las = 2)
+  box()
+  lines(no_individuals, gamevar_mean, type = "l", col = "red")
+  # PyMSQ error bars
+  arrows(no_individuals, PyMSQ_mean - PyMSQ_sd,
+         no_individuals, PyMSQ_mean + PyMSQ_sd,
+         angle = 90, code = 3, col = "blue", length = 0.05)
+  # gamevar error bars
+  arrows(no_individuals, gamevar_mean - gamevar_sd,
+         no_individuals, gamevar_mean + gamevar_sd,
+         angle = 90, code = 3, col = "red", length = 0.05)
+})
+mtext(expression(bold("A")), side = 3, line = 0.5, adj = 0)
+
+# Panel B: Computation Time vs. Markers
+with(time_mark_summary, {
+  plot(no_markers, PyMSQ_mean, type = "l", col = "blue",
+       ylim = range(c(PyMSQ_mean - PyMSQ_sd, PyMSQ_mean + PyMSQ_sd,
+                      gamevar_mean - gamevar_sd, gamevar_mean + gamevar_sd)),
+       xlab = "Number of Markers", ylab = "", axes = FALSE)
+  axis(4, col.axis = "black", las = 2)
+  box()
+  lines(no_markers, gamevar_mean, type = "l", col = "red")
+  arrows(no_markers, PyMSQ_mean - PyMSQ_sd,
+         no_markers, PyMSQ_mean + PyMSQ_sd,
+         angle = 90, code = 3, col = "blue", length = 0.05)
+  arrows(no_markers, gamevar_mean - gamevar_sd,
+         no_markers, gamevar_mean + gamevar_sd,
+         angle = 90, code = 3, col = "red", length = 0.05)
+})
+mtext(expression(bold("B")), side = 3, line = 0.5, adj = 0)
+
+# Panel C: Peak Memory Usage vs. Individuals
+with(mem_ind_summary, {
+  plot(no_individuals, PyMSQ_mean, type = "l", col = "blue",
+       ylim = range(c(PyMSQ_mean - PyMSQ_sd, PyMSQ_mean + PyMSQ_sd,
+                      gamevar_mean - gamevar_sd, gamevar_mean + gamevar_sd)),
+       xlab = "Number of Individuals", ylab = "Peak Memory Usage (GB)",
+       axes = FALSE)
+  axis(2, col.axis = "black", las = 2)
+  box()
+  lines(no_individuals, gamevar_mean, type = "l", col = "red")
+  arrows(no_individuals, PyMSQ_mean - PyMSQ_sd,
+         no_individuals, PyMSQ_mean + PyMSQ_sd,
+         angle = 90, code = 3, col = "blue", length = 0.05)
+  arrows(no_individuals, gamevar_mean - gamevar_sd,
+         no_individuals, gamevar_mean + gamevar_sd,
+         angle = 90, code = 3, col = "red", length = 0.05)
+  axlab = seq(0, max(no_individuals), length.out=11)
+  Axis(side = 1, at = axlab, labels = format(axlab, scientific = FALSE), las = 2)
+})
+mtext(expression(bold("C")), side = 3, line = 0.5, adj = 0)
+
+# Panel D: Peak Memory Usage vs. Markers
+with(mem_mark_summary, {
+  plot(no_markers, PyMSQ_mean, type = "l", col = "blue",
+       ylim = range(c(PyMSQ_mean - PyMSQ_sd, PyMSQ_mean + PyMSQ_sd,
+                      gamevar_mean - gamevar_sd, gamevar_mean + gamevar_sd)),
+       xlab = "Number of Markers", ylab = "", axes = FALSE)
+  axlab = seq(0, max(no_markers), length.out=11)
+  Axis(side = 1, at = axlab, labels = axlab, las = 2)
+  axis(4, col.axis = "black", las = 2)
+  box()
+  lines(no_markers, gamevar_mean, type = "l", col = "red")
+  arrows(no_markers, PyMSQ_mean - PyMSQ_sd,
+         no_markers, PyMSQ_mean + PyMSQ_sd,
+         angle = 90, code = 3, col = "blue", length = 0.05)
+  arrows(no_markers, gamevar_mean - gamevar_sd,
+         no_markers, gamevar_mean + gamevar_sd,
+         angle = 90, code = 3, col = "red", length = 0.05)
+})
+mtext(expression(bold("D")), side = 3, line = 0.5, adj = 0)
+
+# Add global x and y labels
+mtext("Time (min)", at = .75, side = 2, outer = TRUE, cex = 1.2, las = 0, line = 1.8)
+mtext("Peak memory usage (GB)", at = .25, side = 2, outer = TRUE, cex = 1.2, las = 0, line = 1.8)
+mtext("Time (min)", at = .75, side = 4, outer = TRUE, cex = 1.2, las = 0, line = 3.5)
+mtext("Peak memory usage (GB)", at = .25, side = 4, outer = TRUE, cex = 1.2, las = 0, line = 3.5)
+mtext("Number of individuals", at = .25, side = 1, outer = TRUE, cex = 1.2, las = 0, line = 2)
+mtext("Number of markers", at = .75, side = 1, outer = TRUE, cex = 1.2, las = 0, line = 2)
+
+# Common legend
+par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+plot(0, 0, type = 'l', bty = 'n', xaxt = 'n', yaxt = 'n')
+legend("bottom", legend = c("gamevar", "PyMSQ"), col = c("red", "blue"), 
+       lty = c(1, 1), lwd = 1.5, xpd = TRUE, horiz = TRUE, cex = 1.5, seg.len = 1,
+       bty = 'n', ncol = 1, y)
+
+dev.off()
+
+```
+
+Now we display Figure 3:
+```{r Figure3, fig.cap = "Benchmark plots comparing computation time (Panels A, B) and memory usage (Panels C, D) for PyMSQ and gamevar.", echo=FALSE, out.width="100%"}
+knitr::include_graphics("Figure3.png")
+
+```
+
+# 4. Performance Comparison Tables
+We compare PyMSQ and gamevar using two benchmark datasets:
+
+- Individuals Dataset: Number of markers is fixed at 1000, while the number of individuals varies from 5000 to 100000.
+
+- Markers Dataset: Number of individuals is fixed at 500, while the number of markers varies from 2500 to 50000.
+Both datasets involve 10 traits and 1 chromosome.
+
+```{r}
+# For the individuals dataset:
+time_ind_summary <- perf_ind %>%
+  group_by(no_individuals) %>%
+  summarise(
+    PyMSQ_time = mean(time_PyMSQ, na.rm = TRUE) / 60,
+    Gamevar_time = mean(time_gamevar, na.rm = TRUE) / 60
+  ) %>%
+  mutate(Fold_Faster = Gamevar_time / PyMSQ_time)
+
+mem_ind_summary <- perf_ind %>%
+  group_by(no_individuals) %>%
+  summarise(
+    PyMSQ_memory = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
+    Gamevar_memory = mean(peak_memory_usage_gamevar, na.rm = TRUE)
+  ) %>%
+  mutate(Memory_Ratio = PyMSQ_memory / Gamevar_memory)
+
+# Merge the summaries for individuals:
+individuals_summary <- left_join(time_ind_summary, mem_ind_summary, by = "no_individuals") %>%
+  rename(
+    `Number of Individuals` = no_individuals,
+    `PyMSQ Time (min)` = PyMSQ_time,
+    `Gamevar Time (min)` = Gamevar_time,
+    `Time Ratio (Gamevar/PyMSQ)` = Fold_Faster,
+    `PyMSQ Memory (GB)` = PyMSQ_memory,
+    `Gamevar Memory (GB)` = Gamevar_memory,
+    `Memory Ratio (PyMSQ/Gamevar)` = Memory_Ratio
+  )
+
+# For the markers dataset:
+time_mark_summary <- perf_mark %>%
+  group_by(no_markers) %>%
+  summarise(
+    PyMSQ_time = mean(time_PyMSQ, na.rm = TRUE) / 60,
+    Gamevar_time = mean(time_gamevar, na.rm = TRUE) / 60
+  ) %>%
+  mutate(Fold_Faster = Gamevar_time / PyMSQ_time)
+
+mem_mark_summary <- perf_mark %>%
+  group_by(no_markers) %>%
+  summarise(
+    PyMSQ_memory = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
+    Gamevar_memory = mean(peak_memory_usage_gamevar, na.rm = TRUE)
+  ) %>%
+  mutate(Memory_Ratio = PyMSQ_memory / Gamevar_memory)
+
+# Merge the summaries for markers:
+markers_summary <- left_join(time_mark_summary, mem_mark_summary, by = "no_markers") %>%
+  rename(
+    `Number of Markers` = no_markers,
+    `PyMSQ Time (min)` = PyMSQ_time,
+    `Gamevar Time (min)` = Gamevar_time,
+    `Time Ratio (Gamevar/PyMSQ)` = Fold_Faster,
+    `PyMSQ Memory (GB)` = PyMSQ_memory,
+    `Gamevar Memory (GB)` = Gamevar_memory,
+    `Memory Ratio (PyMSQ/Gamevar)` = Memory_Ratio
+  )
+
+```
+### Display the table for the individuals dataset:
+```{r}
+kable(individuals_summary, 
+      caption = "Performance Comparison (Individuals Dataset)", digits = 4)
+```
+
+### Display the table for the markers dataset:
+```{r}
+kable(markers_summary, caption = "Performance Comparison (Markers Dataset)", 
+      digits = 4)
+
+```
+
+# 5. Performance Table 3: Benchmark of similarity matrices
+Using the same data set for benchmarking Mendelian (co-variability), we benchmarked the time and peak memory usage: 
+
+```{r message=F, warning=F}
+library(dplyr)
+library(knitr)
+
+# Read csv files
+perf_ind <- read.csv("similarity_unsaved.csv")
+perf_mark <- read.csv("similarity_mark_unsaved.csv")
+
+# Compute computation time (in minutes) + SD for individuals
+time_ind_summary <- perf_ind %>%
+  group_by(no_individuals) %>%
+  summarise(
+    times = mean(time, na.rm = TRUE) / 60,
+    time_sd = sd(time, na.rm = TRUE) / 60
+  )
+
+mem_ind_summary <- perf_ind %>%
+  group_by(no_individuals) %>%
+  summarise(
+    memory = mean(peak_memory_usage, na.rm = TRUE),
+    memory_sd = sd(peak_memory_usage, na.rm = TRUE)
+  )
+
+# Markers scenario
+time_mark_summary <- perf_mark %>%
+  group_by(no_markers) %>%
+  summarise(
+    times = mean(time, na.rm = TRUE) / 60,
+    time_sd = sd(time, na.rm = TRUE) / 60
+  )
+
+mem_mark_summary <- perf_mark %>%
+  group_by(no_markers) %>%
+  summarise(
+    memory = mean(peak_memory_usage, na.rm = TRUE),
+    memory_sd = sd(peak_memory_usage, na.rm = TRUE)
+  )
+
+# Merge time & memory for Individuals
+ind_summary <- left_join(time_ind_summary, mem_ind_summary, by = "no_individuals") %>%
+  mutate(
+    `Time (min)` = paste0(round(times, 2), " ± ", round(time_sd, 2)),
+    `Memory (GB)` = paste0(round(memory, 2), " ± ", round(memory_sd, 2))
+  ) %>%
+  select(no_individuals, `Time (min)`, `Memory (GB)`)
+
+# Merge time & memory for Markers
+mark_summary <- left_join(time_mark_summary, mem_mark_summary, by = "no_markers") %>%
+  mutate(
+    `Time (min)` = paste0(round(times, 2), " ± ", round(time_sd, 2)),
+    `Memory (GB)` = paste0(round(memory, 2), " ± ", round(memory_sd, 2))
+  ) %>%
+  select(no_markers, `Time (min)`, `Memory (GB)`)
+
+# Rename to avoid duplicates
+ind_summary_renamed <- ind_summary %>%
+  rename(
+    "No. Individuals" = no_individuals,
+    "Time (min) [Ind]" = "Time (min)",
+    "Memory (GB) [Ind]" = "Memory (GB)"
+  )
+
+mark_summary_renamed <- mark_summary %>%
+  rename(
+    "No. Markers" = no_markers,
+    "Time (min) [Mark]" = "Time (min)",
+    "Memory (GB) [Mark]" = "Memory (GB)"
+  )
+
+# Combine side by side
+results <- cbind(ind_summary_renamed, mark_summary_renamed)
+
+# Print the merged table
+kable(results, caption = "Benchmark Results for Similarity Matrix")
+
+
+```
+

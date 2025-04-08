@@ -1,581 +1,620 @@
-# Illustration: Using functions of PyMSQ
-## Import relevant packages and modules
+# Illustration: Utilizing Functions of PyMSQ
+
+**Authors:** Abdulraheem Musa and Norbert Reinsch  
+**Last Updated:** 08.04.2025
+
+## Introduction
+This guide demonstrates **practical applications** of **PyMSQ** functions using an example dataset of **Holstein-Friesian cattle**. PyMSQ is a **comprehensive tool** for deriving Mendelian sampling–related quantities such as (co)variances, correlations, and similarity matrices. The workflow involves:
+
+1. **Importing** and **preparing** data
+2. **Computing** expected LD matrices
+3. **Estimating** Mendelian sampling (co)variance and correlations
+4. **Deriving** similarity matrices (gametes or zygotes)
+5. **Applying** selection strategies (GEBV, UC, index)
+
+Throughout the examples, we use a Holstein-Friesian dataset with 265 cows, 10,304 markers, and multiple milk traits. This data is bundled with PyMSQ for illustrative purposes.
+
+---
+
+## 1. Importing Necessary Packages and Module
+
 
 
 ```python
-from PyMSQ import msq
 import numpy as np
-import time
+import pandas as pd
+import time  # to measure runtimes in examples
+
+# Import the msq module from PyMSQ
+from PyMSQ import msq
+
+# Or equivalently:
+# from PyMSQ.msq import load_package_data, expldmat, msvarcov, ...
+
 ```
 
-## Importation of example data and expected data formats
-In the following, we import a Holstein-Friesian cattle dataset with 265 cows from five half-sib families from Musa and Reinsch [1], a subset of data from previous studies [2, 3]. The dataset contains 39780 markers for 29 (autosomal) chromosomes and marker effects for three example milk traits.
+    C:\Users\musa\AppData\Roaming\Python\Python39\site-packages\pandas\core\arrays\masked.py:60: UserWarning: Pandas requires version '1.3.6' or newer of 'bottleneck' (version '1.3.5' currently installed).
+      from pandas.core import (
+    
 
-The genetic map, marker effects, phased genotypes, and phenotypic information can be imported using the function `msq.example_data()`:
+Note: Ensure you have installed PyMSQ (e.g., pip install PyMSQ).
+
+## 2. Data Importation and Preparation
+### 2.1 Dataset Overview
+We use an example Holstein-Friesian cattle dataset included with PyMSQ. It comprises:
+
+- **265 cows** in 5 half-sib families,
+- **29 autosomal chromosomes** with 10,304 markers,
+- **Marker effects** for key milk traits (fat, protein, pH),
+- And **phenotypic**/**group** information.
+
+This dataset is detailed in Musa and Reinsch [1] and derived from prior studies [2, 3]. You can substitute your own data if it matches the input format described below.
+
+### 2.2. Loading Example Data
+- **Function**: `msq.load_package_data()`
+- **Purpose**: Retrieves example data from local files packaged with PyMSQ.
+- **Usage**:
 
 
 ```python
-gmap, meff, gmat, group, _ = msq.example_data()
+# Loading example data
+data = msq.load_package_data()
+
+# Extracting key DataFrames
+gmap  = data['chromosome_data']     # Genetic map info
+meff  = data['marker_effect_data']  # Marker effects
+gmat  = data['genotype_data']       # Phased genotypes
+group = data['group_data']          # Group/phenotypic info
+
+# Quick checks
+print("Genetic map:")
+print(gmap.head(), "\n")
+
+print("Marker effects:")
+print(meff.head(), "\n")
+
+print("Phased genotypes:")
+print(gmat.head(), "\n")
+
+print("Group/phenotypic info:")
+print(group.head())
+
 ```
 
-The main information required by the functions in the msq module and how they should be provided are explained below:
+    Genetic map:
+       CHR SNPName  Position    group1
+    0    1    SNP1    113641  0.113641
+    1    1    SNP2    244698  0.244698
+    2    1    SNP3    369418  0.369418
+    3    1    SNP4    447277  0.447277
+    4    1    SNP5    487653  0.487653 
+    
+    Marker effects:
+            fat   protein        pH
+    0  0.000059 -0.000211 -0.000163
+    1 -0.000051 -0.000006 -0.000773
+    2  0.000034 -0.000075 -0.000047
+    3  0.000026 -0.000118  0.000101
+    4  0.000021  0.000075  0.000066 
+    
+    Phased genotypes:
+           0                                                  1
+    0  10001  1222221222222221122111112222222222211222212222...
+    1  10001  2222122122222222222222222221222222222222222221...
+    2  10002  2211222222222222222222222122112112222222222222...
+    3  10002  2222222122222222222222222212112212222122221121...
+    4  10003  2211222222222222222222222122112112222222222222... 
+    
+    Group/phenotypic info:
+          ID group
+    0  10001     F
+    1  10002     F
+    2  10003     F
+    3  10004     F
+    4  10005     F
+    
 
-1. `Phenotypic information`: This information should be provided as a pandas data frame with two columns. As indicated below, the first column should provide group classification (e.g., sex, breed, or strain), whereas the second column should provide identification numbers (ID) of individuals:
+### 2.3 Data Requirements & Structures
+1. Group / Phenotypic Data (group)
+    - Must have at least two columns:
+        - Column 1: Individual IDs
+        - Column 2: Group classification (e.g., “M”/“F”)
+    - You can manually edit the group column to create subgroups, e.g., sexes.
 
 
 ```python
-print(group)
+print("Example group DataFrame:\n", group.head())
+group_sexes = group.copy()
+group_sexes.iloc[0:130, 1] = "M"  # Assume first 130 are males
+group_sexes.iloc[130:, 1]  = "F"  # Remaining as females
+
 ```
 
-        group     ID
-    0       F  10001
-    1       F  10002
-    2       F  10003
-    3       F  10004
-    4       F  10005
-    ..    ...    ...
-    260     F  10261
-    261     F  10262
-    262     F  10263
-    263     F  10264
-    264     F  10265
-    
-    [265 rows x 2 columns]
+    Example group DataFrame:
+           ID group
+    0  10001     F
+    1  10002     F
+    2  10003     F
+    3  10004     F
+    4  10005     F
     
 
-All individuals in this data are females (F). In order to demonstrate the use of some functions for zygotes, let us assume the first 130 individuals are males (M) like:
+2. **Genetic Map** (`gmap`)
+- A DataFrame where:
+    - Column 1: Chromosome ID (integer or name),
+    - Column 2: Marker name/ID,
+    - Column 3: Physical position or base pair coordinate,
+    - Columns 4+: cM or recombination rates, possibly multiple columns if group-specific.
+- If using recombination rates, the first marker in each chromosome should be 0.
 
 
 ```python
-group.iloc[0:130, 0] = "M"
-print(group)
+print(gmap.head())  # Displaying the structure of the genetic map
 ```
 
-        group     ID
-    0       M  10001
-    1       M  10002
-    2       M  10003
-    3       M  10004
-    4       M  10005
-    ..    ...    ...
-    260     F  10261
-    261     F  10262
-    262     F  10263
-    263     F  10264
-    264     F  10265
-    
-    [265 rows x 2 columns]
+       CHR SNPName  Position    group1
+    0    1    SNP1    113641  0.113641
+    1    1    SNP2    244698  0.244698
+    2    1    SNP3    369418  0.369418
+    3    1    SNP4    447277  0.447277
+    4    1    SNP5    487653  0.487653
     
 
-2. `Genetic map`: The genetic map should be provided as a pandas data frame. The first three columns must be the chromosome number, marker name, and marker position in base pairs. The remaining column(s) should be maker distance/position (cM) or recombination rates in the order listed in the group column of the phenotypic information (1). Let us assume the group classification is sex. If males are listed first, then the fourth column should be the marker distance/position (or recombination rates) for males. The fifth column should be the marker distance/position (or recombination rates) for females. If an average map for all groups is provided, the data frame will contain four columns only, with the average marker distance/position as the fourth column (or recombination rates). Below is an example of how the genetic map should be provided:
+3. **Marker effects** or **Allele substitution effects** (`meff`):
+
+- Rows = markers, columns = trait names.
+- For multi-trait scenarios, each column is a separate trait’s marker effects.
 
 
 ```python
-print(gmap)
+print("Example marker effects:\n", meff.head())
+# Suppose columns = ["fat", "protein", "pH"]
 ```
 
-           CHR   SNPName  Position     group1
-    0        1      SNP1    113641   0.113641
-    1        1      SNP2    244698   0.244698
-    2        1      SNP3    369418   0.369418
-    3        1      SNP4    447277   0.447277
-    4        1      SNP5    487653   0.487653
-    ...    ...       ...       ...        ...
-    39775   29  SNP39776  51899151  51.899151
-    39776   29  SNP39777  51920849  51.920849
-    39777   29  SNP39778  51986600  51.986600
-    39778   29  SNP39779  52030414  52.030414
-    39779   29  SNP39780  52112161  52.112161
-    
-    [39780 rows x 4 columns]
+    Example marker effects:
+             fat   protein        pH
+    0  0.000059 -0.000211 -0.000163
+    1 -0.000051 -0.000006 -0.000773
+    2  0.000034 -0.000075 -0.000047
+    3  0.000026 -0.000118  0.000101
+    4  0.000021  0.000075  0.000066
     
 
-Let us add another column to the data frame to simulate a data frame with group-specific maps.
+4. **Phased genotypes** `gmat`: 
+
+- Typically shape: (2 * N_individuals, #markers). Each individual has 2 rows (paternal haplotype, maternal haplotype).
+- Alternatively, a single string column per row (e.g., "010210...") that PyMSQ will parse.
 
 
 ```python
-gmap.insert(4, "group2", gmap.iloc[:, 3], True)
-print(gmap)
+print("Example phased genotypes:\n", gmat.head())
 ```
 
-           CHR   SNPName  Position     group1     group2
-    0        1      SNP1    113641   0.113641   0.113641
-    1        1      SNP2    244698   0.244698   0.244698
-    2        1      SNP3    369418   0.369418   0.369418
-    3        1      SNP4    447277   0.447277   0.447277
-    4        1      SNP5    487653   0.487653   0.487653
-    ...    ...       ...       ...        ...        ...
-    39775   29  SNP39776  51899151  51.899151  51.899151
-    39776   29  SNP39777  51920849  51.920849  51.920849
-    39777   29  SNP39778  51986600  51.986600  51.986600
-    39778   29  SNP39779  52030414  52.030414  52.030414
-    39779   29  SNP39780  52112161  52.112161  52.112161
-    
-    [39780 rows x 5 columns]
+    Example phased genotypes:
+            0                                                  1
+    0  10001  1222221222222221122111112222222222211222212222...
+    1  10001  2222122122222222222222222221222222222222222221...
+    2  10002  2211222222222222222222222122112112222222222222...
+    3  10002  2222222122222222222222222212112212222122221121...
+    4  10003  2211222222222222222222222122112112222222222222...
     
 
-PyMSQ will use group1 as the marker distance/position (or recombination rates) for males and group2 for females because males are first in the data frame for phenotypic information.
+Important: All genotypes must be biallelic (allows 0-9 coding) and free of missing codes.
 
-Note: When using recombination rates, the first marker on a chromosome must be zero, followed by recombination rate between markers m and m+1. However, the first element on each chromosome does not have to be zero when using genetic position/distance (specified in cM) because the function utilizes the differences between given values. This allows any subset of markers from a genetic map to be conveniently used by copying their physical (base-pairs) and genetic map (cM) positions.
+# 3. Practical Use of PyMSQ Functions
 
-3. `Allele substitution effects`: The allele substitution or marker effects should be provided as a pandas data frame with named columns. This data frame provides the trait names used in PyMSQ functions. As a result, users should name these columns according to how they want them to appear in the results. The number of rows of this data frame should be equal to the number of markers, and the number of columns should be equal to the number of traits plus one. The first column should be the marker name (same as in the genetic map), and the remaining column(s) should be allele substitution or marker effects for each trait. Here is an example:
+This section illustrates key PyMSQ routines:
+
+1. `expldmat`: Computing expected within-family LD matrices.
+2. `msvarcov`: Calculating Mendelian sampling (co)variance.
+3. `msvarcov_corr`: Converting (co)variance to correlation.
+4. `simmat`: Building similarity matrices for gametes or zygotes.
+5. `selstrat`: Running selection strategies (GEBV, UC, Index).
+
+
+
+## 3.1. Deriving the Expected Within-Family LD Matrix
+
+**Function**: `msq.expldmat(gmap, group, **kwargs)`
+**Purpose**: Compute the expected within-family LD matrix ∗∗𝑅∗∗ for each chromosome, using cM or recombination rates.
 
 
 ```python
-print(meff)
-```
-
-            SNPName       fat        pH   protein
-    0          SNP1  0.000059 -0.000163 -0.000211
-    1          SNP2 -0.000051 -0.000773 -0.000006
-    2          SNP3  0.000034 -0.000047 -0.000075
-    3          SNP4  0.000026  0.000101 -0.000118
-    4          SNP5  0.000021  0.000066  0.000075
-    ...         ...       ...       ...       ...
-    39775  SNP39776 -0.000104 -0.000078 -0.000017
-    39776  SNP39777  0.000205 -0.000145 -0.000053
-    39777  SNP39778  0.000034  0.000025  0.000043
-    39778  SNP39779 -0.000148 -0.000033 -0.000003
-    39779  SNP39780 -0.000059 -0.000004  0.000013
-    
-    [39780 rows x 4 columns]
-    
-
-4. `Phased genotypes`: Phased genotypes: Individuals' paternal and maternal haplotypes should be arranged in rows with their IDs. The phased genotypes should also be provided as a pandas data frame in one of the following ways:
-* i: as strings array – The data frame should have two columns (ID and haplotypes as strings without spaces), and the number of rows should be 2 * the number of individuals, as follows:
-
-
-
-```python
-print(gmat)
-```
-
-             0                                                  1
-    0    10001  0222222022222222222200222220222000002000222222...
-    1    10001  2222020202222220222222222202222222222222220022...
-    2    10002  2200222222220022222222022222222222222220002222...
-    3    10002  2222222202220222222222022222222222222222000222...
-    4    10003  2200222222220022222222022222222222222220002222...
-    ..     ...                                                ...
-    525  10263  2000222222222222000022022222222222222220002222...
-    526  10264  0222222022222222222200222220222000022222222022...
-    527  10264  2222222202220222222222022202022222222222222222...
-    528  10265  2222222222222222222222022222222222222222222222...
-    529  10265  2200222222220022222222022222222222222220002222...
-    
-    [530 rows x 2 columns]
-    
-
-* ii: as an integer array. Here the number of rows is still the same as above, but the number of columns is 1 (ID number) + the number of markers.
-
-Note: Since genotypes are already phased into haplotypes, PyMSQ does not expect missing values and, therefore, does not accept data with missing values. It does, however, accept any coding for phased haplotypes as long as they are biallelic (i.e., two integers must be used for coding) and taken from integers ranging from 0 to 9. As a result, outputs from several genotype phasing software can be used with ease.
-
-## Checking the input information for errors
-PyMSQ requires that the main information, including index weights, be checked for errors using the function msq.Datacheck to enhance the smooth running of other functions. Briefly, it performs checks to ensure the following:
-*	The number of traits matches the length of index weights.
-*	The ID of individuals in phenotypic information and phased genotypes are ordered, and the same.
-*	There are no missing allele substitution or marker effects, and all entries are numeric.
-*	Marker names in the genetic map and marker effects are ordered, and the same.
-*	The number of maps is the same as the number of groups if the map number is more than one.
-*	The number of markers in phased genotypes, genetic map, and marker effects is the same.
-*	The marker distance/position or recombination rates on each chromosome are ordered.
-
-A corresponding error message is printed to screen if any of the above checks fail.
-
-In addition to checking for errors, the function transforms phased haplotypes to genotypes and saves all relevant information as a class object, subsequently used by other functions.
-
-
-```python
-index_wt = [1, 1, 1]
+# Example 1: Default usage (mposunit="cM", method=1, threshold=None)
 start = time.time()
-data = msq.Datacheck(gmap=gmap, meff=meff, gmat=gmat, group=group,
-                     indwt=index_wt, progress=True)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
+exp_ldmat_default = msq.expldmat(gmap, group)
+print("Time taken:", round(time.time() - start, 2), "sec")
+
+# Inspect the first chromosome’s LD matrix
+ld_chr1 = exp_ldmat_default[0][0]  # If single group, a list of lists
+print("LD matrix for chromosome1, method=1:\n", ld_chr1)
+
+# Example 2: Using Santos’ method = 2, threshold=50 cM
+exp_ldmat_santos = msq.expldmat(gmap, group, mposunit="cM", method=2, threshold=50)
+ld_chr1_santos = exp_ldmat_santos[0][0]
+print("LD matrix for chromosome1, method=2, threshold=50:\n", ld_chr1_santos)
 ```
 
-    Converting phased haplotypes to genotypes
-    Data passed the test!
-    Number of individuals:   265
-    Number of groups:        2 :  ['M' 'F']
-    Number of specific maps: 2
-    Number of chromosomes:   29
-    Total no. markers:       39780
-    Number of trait(s):      3
-    Trait name(s) and Index weight(s)
-    fat :  1
-    pH :  1
-    protein :  1
-    Time taken:  2.9 secs
+    Time taken: 0.04 sec
+    LD matrix for chromosome1, method=1:
+     [[0.25       0.24934559 0.24872437 ... 0.01002053 0.01001573 0.01000675]
+     [0.24934559 0.25       0.24937719 ... 0.01004683 0.01004202 0.01003301]
+     [0.24872437 0.24937719 0.25       ... 0.01007192 0.0100671  0.01005807]
+     ...
+     [0.01002053 0.01004683 0.01007192 ... 0.25       0.24988016 0.24965608]
+     [0.01001573 0.01004202 0.0100671  ... 0.24988016 0.25       0.24977581]
+     [0.01000675 0.01003301 0.01005807 ... 0.24965608 0.24977581 0.25      ]]
+    LD matrix for chromosome1, method=2, threshold=50:
+     [[0.25       0.24934472 0.24872111 ... 0.         0.         0.        ]
+     [0.24934472 0.25       0.2493764  ... 0.         0.         0.        ]
+     [0.24872111 0.2493764  0.25       ... 0.         0.         0.        ]
+     ...
+     [0.         0.         0.         ... 0.25       0.24988014 0.24965584]
+     [0.         0.         0.         ... 0.24988014 0.25       0.2497757 ]
+     [0.         0.         0.         ... 0.24965584 0.2497757  0.25      ]]
     
 
-The main information may be deleted because they are already stored as a class object.
+If multiple group-specific columns in gmap exist (e.g., "M" vs. "F"), expldmat returns a dict keyed by group name, with each value holding the per-chromosome LD matrices.
+
+
+## 3.2. Estimating Mendelian Sampling (Co)variance
+**Function**: `msq.msvarcov(gmat, gmap, meff, exp_ldmat, group, **kwargs)`
+
+**Purpose**: Compute each individual’s Mendelian sampling variance (MSV) for single or multiple traits.
 
 
 ```python
-del gmap, meff, gmat, group, index_wt
-```
-
-## Setting up the population covariance matrix
-
-The population covariance matrix is derived using function `msq.popcovmat` according to Bonk et al. [4] if parameter method=1 or Santos et al. [5] if method=2. The map type must be specified using mposunit= "cM" for genetic position/distance (centimorgan), or mposunit= "reco" for recombination rates. If mposunit=‘reco', an additional check is run to ensure that the first marker on each chromosome has a value of zero. An error message is displayed on the screen if the value is not zero. When group-specific maps are available, this function returns a named list of lists containing population covariance matrices (for each chromosome) for each group.
-
-
-```python
+# Basic multi-trait scenario
+index_weights = [1, 1, 1]  # e.g., equal weighting for 3 traits
 start = time.time()
-covmatrices = msq.popcovmat(info=data, mposunit="cM", method=1)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
+msvmsc_g = msq.msvarcov(
+    gmat       = gmat,
+    gmap       = gmap,
+    meff       = meff,
+    exp_ldmat  = exp_ldmat_default,
+    group      = group,
+    indwt      = index_weights,
+    center     = False,
+    progress   = True
+)
+runtime = round(time.time() - start, 2)
+print(f"Computed MSV for all individuals in {runtime} sec.\n", msvmsc_g.head())
+
+# Subset usage
+selected_ids = group.iloc[[0, 10, 20, 30], 0]  # picking 4 IDs
+msvmsc_subset = msq.msvarcov(
+    gmat       = gmat, 
+    gmap       = gmap, 
+    meff       = meff,
+    exp_ldmat  = exp_ldmat_default, 
+    group      = group,
+    indwt      = index_weights,
+    sub_id     = selected_ids
+)
+print("Subset-based MSV:\n", msvmsc_subset)
+
+# Group-specific maps usage
+gmap_group_specific = gmap.copy()
+# Insert the 4th column's values as a new column named "group2" at position 4
+gmap_group_specific.insert(4, "group2", gmap_group_specific.iloc[:, 3])
+# Derive group secific LD matrices
+exp_ldmat_group_specific = msq.expldmat(gmap_group_specific, group_sexes)
+msvmsc_sex_map = msq.msvarcov(
+    gmat      = gmat,
+    gmap      = gmap_group_specific,
+    meff      = meff,
+    exp_ldmat = exp_ldmat_group_specific,
+    group     = group_sexes,
+    indwt     = index_weights
+)
+print("MSV with group-specific map:\n", msvmsc_sex_map.head())
+
 ```
 
-    Time taken:  3.94 secs
+    Formatting phased haplotypes
+    phased genotype data has 530 rows and 10304 columns
+    Allele 1: 829180
+    Allele 2: 4631940
+    Major allele: 2
+    Progress: |##################################################| 100% Complete
+    Computed MSV for all individuals in 2.76 sec.
+           ID Group       fat   protein_fat   protein    pH_fat  pH_protein  \
+    0  10001     F  0.000023  1.895190e-06  0.000115  0.000011   -0.000001   
+    1  10002     F  0.022089  1.588602e-02  0.011507  0.012589    0.009055   
+    2  10003     F  0.022267  1.597741e-02  0.011675  0.013504    0.009686   
+    3  10004     F  0.000033 -1.067220e-07  0.000102  0.000032   -0.000019   
+    4  10005     F  0.022131  1.585642e-02  0.011514  0.012576    0.009006   
+    
+             pH    AG_fat  AG_protein     AG_pH        AG  
+    0  0.000135  0.000036    0.000115  0.000145  0.000296  
+    1  0.007375  0.050564    0.036448  0.029018  0.116029  
+    2  0.008541  0.051748    0.037338  0.031731  0.120818  
+    3  0.000376  0.000065    0.000083  0.000389  0.000536  
+    4  0.007419  0.050564    0.036377  0.029002  0.115943  
+    phased genotype data has 530 rows and 10304 columns
+    Subset-based MSV:
+           ID Group       fat  protein_fat   protein    pH_fat  pH_protein  \
+    0  10001     F  0.000023     0.000002  0.000115  0.000011   -0.000001   
+    1  10011     F  0.000022     0.000020  0.000173  0.000008   -0.000012   
+    2  10021     F  0.022280     0.016096  0.011705  0.014233    0.010277   
+    3  10031     F  0.000021     0.000014  0.000095 -0.000002    0.000020   
+    
+             pH    AG_fat  AG_protein     AG_pH        AG  
+    0  0.000135  0.000036    0.000115  0.000145  0.000296  
+    1  0.000086  0.000050    0.000181  0.000083  0.000314  
+    2  0.009365  0.052608    0.038078  0.033875  0.124562  
+    3  0.000365  0.000032    0.000128  0.000382  0.000543  
+    phased genotype data has 530 rows and 10304 columns
+    MSV with group-specific map:
+           ID Group       fat   protein_fat   protein    pH_fat  pH_protein  \
+    0  10001     M  0.000023  1.895190e-06  0.000115  0.000011   -0.000001   
+    1  10002     M  0.022089  1.588602e-02  0.011507  0.012589    0.009055   
+    2  10003     M  0.022267  1.597741e-02  0.011675  0.013504    0.009686   
+    3  10004     M  0.000033 -1.067220e-07  0.000102  0.000032   -0.000019   
+    4  10005     M  0.022131  1.585642e-02  0.011514  0.012576    0.009006   
+    
+             pH    AG_fat  AG_protein     AG_pH        AG  
+    0  0.000135  0.000036    0.000115  0.000145  0.000296  
+    1  0.007375  0.050564    0.036448  0.029018  0.116029  
+    2  0.008541  0.051748    0.037338  0.031731  0.120818  
+    3  0.000376  0.000065    0.000083  0.000389  0.000536  
+    4  0.007419  0.050564    0.036377  0.029002  0.115943  
     
 
-## Estimation of Mendelian sampling (co)variance for gametes produced by an individual
-The function `msq.msvarcov_g` can be used to estimate the Mendelian sampling variance (MSV) for each trait, MSV of aggregate genotype (AG) for multiple traits, as well as their covariances. As a result, a data frame with trait names indicating Mendelian sampling variance for those traits, as well as a combination of trait names separated by "_" indicating Mendelian covariances between those traits, is created.
+Key Columns in the returned DataFrame usually include:
+
+- **ID** and **Group**,
+- One column per single trait’s variance (and possibly their covariances),
+- An "AG" (aggregate genotype) column if multi-trait with `indwt` specified.
+
+
+## 3.3. Converting Mendelian Sampling Covariances to Correlations
+**Function**: `msq.msvarcov_corr(msvmsc)`
+
+**Purpose**: Convert the lower-triangular (co)variance columns to correlations.
 
 
 ```python
-start = time.time()
-msvmsc_g = msq.msvarcov_g(info=data, covmat=covmatrices,
-                          sub_id=None, progress=True)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(msvmsc_g)
+msvmsc_gcorr = msq.msvarcov_corr(msvmsc=msvmsc_g)
+print(msvmsc_gcorr.head())
 ```
 
-    Progress: |██████████████████████████████████████████████████| 100% Complete
-    Time taken:  25.21 secs
-            ID Group       fat    pH_fat        pH  protein_fat  protein_pH  \
-    0    10001     M  0.000466  0.000154  0.001805     0.000136   -0.000157   
-    1    10002     M  0.023262  0.014908  0.013225     0.017306    0.011082   
-    2    10003     M  0.021665  0.013760  0.010475     0.015662    0.009849   
-    3    10004     M  0.000949  0.000317  0.004836    -0.000044   -0.000158   
-    4    10005     M  0.021892  0.014447  0.012676     0.015576    0.010120   
-    ..     ...   ...       ...       ...       ...          ...         ...   
-    260  10261     F  0.022112  0.012953  0.010050     0.017090    0.009524   
-    261  10262     F  0.023853  0.016183  0.012896     0.017691    0.012189   
-    262  10263     F  0.000604  0.000096  0.002694     0.000025    0.000126   
-    263  10264     F  0.022809  0.015301  0.012748     0.017123    0.011174   
-    264  10265     F  0.022491  0.016226  0.013892     0.016460    0.011973   
+          ID Group  protein_fat    pH_fat  pH_protein    AG_fat  AG_protein  \
+    0  10001     F     0.036531  0.195637   -0.009354  0.436113    0.625978   
+    1  10002     F     0.996419  0.986304    0.982884  0.998772    0.997474   
+    2  10003     F     0.990927  0.979225    0.969887  0.997708    0.994151   
+    3  10004     F    -0.001846  0.288299   -0.098526  0.487664    0.353708   
+    4  10005     F     0.993303  0.981447    0.974409  0.998197    0.995601   
     
-          protein    AG_fat     AG_pH  AG_protein        AG  
-    0    0.002321  0.000756  0.001802    0.002300  0.004858  
-    1    0.015098  0.055475  0.039215    0.043486  0.138176  
-    2    0.013710  0.051087  0.034084    0.039221  0.124392  
-    3    0.001352  0.001223  0.004995    0.001149  0.007367  
-    4    0.013318  0.051915  0.037243    0.039013  0.128172  
-    ..        ...       ...       ...         ...       ...  
-    260  0.015024  0.052155  0.032527    0.041637  0.126319  
-    261  0.015089  0.057727  0.041268    0.044968  0.143963  
-    262  0.001841  0.000725  0.002916    0.001992  0.005633  
-    263  0.014931  0.055232  0.039223    0.043227  0.137683  
-    264  0.013582  0.055177  0.042091    0.042014  0.139282  
-    
-    [265 rows x 12 columns]
+          AG_pH  
+    0  0.723546  
+    1  0.991987  
+    2  0.987773  
+    3  0.865729  
+    4  0.988830  
     
 
-As seen above, Mendelian sampling (co-)variance will be estimated for all individuals if parameter sub_id is None.
-There may be cases where a user might be interested in a subset of individuals. In this case, the user can provide individuals of interest as a pandas data frame with one column. Assuming the candidates of interest are
+Note: Raises a ValueError if only one trait (no covariance).
+
+
+## 3.4. Deriving Similarity Matrices
+**Function**: `msq.simmat(gmat, gmap, meff, group, exp_ldmat, **kwargs)`
+
+**Purpose**: Compute similarity matrices for:
+- **Gametes** (1-col sub_id or None),
+- **Zygotes** (2-col sub_id: [MaleID, FemaleID]).
 
 
 ```python
-aaa = np.arange(0, 265, 40)
-df_gam = data.group.iloc[aaa, 1]
-print(df_gam)
+# Example 1: Gametic similarity for all individuals
+sim_gametes = msq.simmat(
+    gmat      = gmat,
+    gmap      = gmap,
+    meff      = meff,
+    group     = group,
+    exp_ldmat = exp_ldmat_default,
+    indwt     = index_weights,
+    stdsim    = False,       # no standardization
+    progress  = True
+)
+print("Gametic similarity:\n", sim_gametes)
+
+# Example 2: Standardized similarity, restricted subset
+some_ids = group.iloc[:10, 0]  # first 10 individuals
+sim_gametes_std = msq.simmat(
+    gmat      = gmat,
+    gmap      = gmap,
+    meff      = meff,
+    group     = group,
+    exp_ldmat = exp_ldmat_default,
+    sub_id    = some_ids,
+    indwt     = index_weights,
+    stdsim    = True,        # standardize
+    center    = True
+)
+print("Standardized similarity matrix for 10 individuals:\n", sim_gametes_std)
+
+# Example 3: Zygotic similarity for parent pairs
+mate_pairs = pd.DataFrame({
+    "Male_ID":   [10001, 10002, 10003],
+    "Female_ID": [10261, 10262, 10263]
+})
+sim_zygotes = msq.simmat(
+    gmat         = gmat,
+    gmap         = gmap_group_specific,
+    meff         = meff,
+    group        = group_sexes,
+    exp_ldmat    = exp_ldmat_group_specific,
+    sub_id       = mate_pairs,
+    indwt        = index_weights,
+    chrinterest  = None,    # or specific chromosomes
+    stdsim       = True,
+    progress     = True
+)
+print("Zygotic similarity for parent pairs:\n", sim_zygotes)
+
 ```
 
-    0      10001
-    40     10041
-    80     10081
-    120    10121
-    160    10161
-    200    10201
-    240    10241
-    Name: ID, dtype: int64
-    
-
-Then the Mendelian sampling (co-)variances of traits for these individuals are given below:
-
-
-```python
-start = time.time()
-msvmsc_gsub = msq.msvarcov_g(info=data, covmat=covmatrices,
-                             sub_id=df_gam, progress=False)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(msvmsc_gsub)
-```
-
-    Time taken:  0.66 secs
-          ID Group       fat    pH_fat        pH  protein_fat  protein_pH  \
-    0  10001     M  0.000466  0.000154  0.001805     0.000136   -0.000157   
-    1  10041     M  0.000421  0.000161  0.003291     0.000095   -0.000169   
-    2  10081     M  0.000629  0.000242  0.003329     0.000291   -0.000025   
-    3  10121     M  0.022551  0.014175  0.011532     0.016422    0.010774   
-    4  10161     F  0.000469 -0.000055  0.002331     0.000368   -0.000489   
-    5  10201     F  0.000466 -0.000022  0.002190     0.000254   -0.000319   
-    6  10241     F  0.000566  0.000213  0.001609     0.000415    0.000152   
-    
-        protein    AG_fat     AG_pH  AG_protein        AG  
-    0  0.002321  0.000756  0.001802    0.002300  0.004858  
-    1  0.001163  0.000676  0.003282    0.001089  0.005048  
-    2  0.003116  0.001162  0.003546    0.003382  0.008090  
-    3  0.014838  0.053148  0.036481    0.042034  0.131663  
-    4  0.002253  0.000782  0.001786    0.002132  0.004701  
-    5  0.002331  0.000698  0.001850    0.002266  0.004815  
-    6  0.002229  0.001194  0.001974    0.002796  0.005965  
-    
-
-### Mendelian correlations
-Mendelian sampling covariance can be converted to correlations using the function `msq.msvarcov_gcorr` to better compare trait combinations. The function returns a data frame containing correlations between traits. Note that the output does not contain a trait's correlation with itself (equals one).
-
-
-```python
-start = time.time()
-msvmsc_gsubcorr = msq.msvarcov_gcorr(msvmsc_gsub)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(msvmsc_gsubcorr)
-```
-
-    Time taken:  0.01 secs
-          ID Group    pH_fat  protein_fat  protein_pH    AG_fat     AG_pH  \
-    0  10001     M  0.168243     0.130355   -0.076619  0.502305  0.608696   
-    1  10041     M  0.136506     0.135905   -0.086558  0.464180  0.805301   
-    2  10081     M  0.167167     0.208082   -0.007698  0.515131  0.683314   
-    3  10121     M  0.879009     0.897727    0.823645  0.975373  0.936237   
-    4  10161     F -0.052918     0.358214   -0.213430  0.526718  0.539680   
-    5  10201     F -0.021511     0.244284   -0.141048  0.466434  0.569633   
-    6  10241     F  0.223733     0.369907    0.080044  0.650271  0.637240   
-    
-       AG_protein  
-    0    0.684896  
-    1    0.449414  
-    2    0.673654  
-    3    0.950996  
-    4    0.655163  
-    5    0.676601  
-    6    0.766810  
-    
-
-## Estimation of selection criteria
-1. `Gametic approach`: The function `msq.selstrat_g` can be used to obtain selection criteria for each characteristic as well as an individual's aggregate breeding value (ABV). The parameter selstrat can be “GEBV,” “PBTI,” or “INDEX,” repre- senting genomic estimated breeding values, probability to breed top-ranking individuals, or a selection index combining GEBV and Mendelian standard deviations, respectively. If selstrat is “PBTI” or “INDEX”, parameter sub_id is ignored and estimates are provided for individuals in Mendelian sampling (co-)variance (msvmsc parameter) data frame.
-
-
-```python
-start = time.time()
-sel_g = msq.selstrat_g(selstrat="PBTI", info=data, sub_id=df_gam,
-                       msvmsc=msvmsc_g, throrconst=0.05)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(sel_g)
-```
-
-    Time taken:  0.49 secs
-            ID Group       fat        pH   protein       ABV
-    0    10001     M  0.996264  0.000000  0.651731  0.033476
-    1    10002     M  0.084399  0.000003  0.134932  0.047714
-    2    10003     M  0.052664  0.006790  0.128033  0.141537
-    3    10004     M  0.999113  0.000138  0.000003  0.183958
-    4    10005     M  0.192267  0.000004  0.000017  0.007792
-    ..     ...   ...       ...       ...       ...       ...
-    260  10261     F  0.002609  0.001245  0.000039  0.003536
-    261  10262     F  0.003807  0.019924  0.000075  0.011257
-    262  10263     F  0.623545  0.998058  0.015548  0.999982
-    263  10264     F  0.002814  0.004171  0.000219  0.007632
-    264  10265     F  0.000879  0.099573  0.000032  0.012122
-    
-    [265 rows x 6 columns]
-    
-
-If selstrat is GEBV, estimates are provided for individuals in the sub_id data frame. Other parameters may be set to None because they are not required for GEBV. For example, a user may set the sub_id parameter to None if interested in all individuals.
-
-
-```python
-start = time.time()
-sel_g = msq.selstrat_g(selstrat="GEBV", info=data, sub_id=None,
-                       msvmsc=None, throrconst=None)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(sel_g)
-```
-
-    Time taken:  0.31 secs
-            ID Group       fat        pH   protein       ABV
-    0    10001     M  0.270993 -0.214728  0.291675  0.347941
-    1    10002     M  0.003386 -0.284890  0.137310 -0.144194
-    2    10003     M -0.025118 -0.017753  0.139902  0.097031
-    3    10004     M  0.309569 -0.018075  0.106850  0.398344
-    4    10005     M  0.084600 -0.269435 -0.205395 -0.390230
-    ..     ...   ...       ...       ...       ...       ...
-    260  10261     F -0.202100 -0.068357 -0.211195 -0.481652
-    261  10262     F -0.198903  0.001456 -0.192614 -0.390060
-    262  10263     F  0.220997  0.384744  0.180376  0.786116
-    263  10264     F -0.204883 -0.062984 -0.156713 -0.424580
-    264  10265     F -0.255890  0.083525 -0.192927 -0.365292
-    
-    [265 rows x 6 columns]
-    
-
-If parameter selstrat="INDEX", a constant of throrconst = 1.5 is used to weight Mendelian sampling standard deviations
-
-
-```python
-start = time.time()
-sel_gsub = msq.selstrat_g(selstrat="INDEX", info=data, sub_id=None,
-                          msvmsc=msvmsc_gsub, throrconst=1.5)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(sel_gsub)
-```
-
-    Time taken:  0.02 secs
-          ID Group       fat        pH   protein       ABV
-    0  10001     M  0.167868 -0.043638  0.218103  0.278515
-    1  10041     M  0.144649  0.132887 -0.023245  0.192882
-    2  10081     M  0.136536  0.168263  0.244436  0.476266
-    3  10121     M  0.149041  0.149686  0.147139  0.421094
-    4  10161     F -0.246005 -0.108670  0.080309 -0.347634
-    5  10201     F -0.235311 -0.055924 -0.015538 -0.377672
-    6  10241     F  0.033224  0.193590  0.103777  0.279773
-    
-
-2. `Zygotic approach`: Selection criteria for zygotes can be obtained using the function `msq.selstrat_z`. Parameter sub_idz plays a slightly different role. Here, if sub_idz is None, the best (based on chosen selection criterion) combinations of top males and females in the Mendelian sampling (co-)variance data frame (msvmsc parameter) are outputted. The maximum allowed allocation of males can also be set. However, if sub_idz is a data frame with IDs of parent pairs, the parameters selmale (selection proportion for males; 0.01 selects 1%, 1 selects all males), selfm (selection proportion for females), and maxmale (maximum number of allocation allowed per male) can be set to None.
-
-
-
-```python
-start = time.time()
-sel_z = msq.selstrat_z(selstrat="PBTI", info=data, sub_idz=None,
-                       msvmsc=msvmsc_g, throrconst=0.05,
-                       selmale=["M", 1], selfm=["F", 1],
-                       maxmale=2)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(sel_z)
-```
-
-    Time taken:  1.22 secs
-        MaleID FemaleID MaleIndex FemaleIndex       fat        pH   protein  \
-    0    10009    10131         8         130       0.0  0.015273  0.196209   
-    1    10009    10132         8         131       0.0  0.000266  0.009127   
-    2    10046    10133        45         132   0.33206  0.321037  0.168052   
-    3    10046    10134        45         133  0.252743  0.251529  0.151957   
-    4    10031    10135        30         134       0.0  0.000101  0.000019   
-    ..     ...      ...       ...         ...       ...       ...       ...   
-    130  10017    10261        16         260  0.116728  0.002163  0.008054   
-    131  10017    10262        16         261  0.127544  0.011316  0.009853   
-    132  10085    10263        84         262  0.136705  0.302792  0.020996   
-    133  10085    10264        84         263  0.037648   0.02904  0.006313   
-    134  10061    10265        60         264   0.02589  0.025851  0.020836   
-    
-              ABV  
-    0    0.002325  
-    1    0.000001  
-    2    0.516713  
-    3     0.42109  
-    4         0.0  
-    ..        ...  
-    130  0.060115  
-    131  0.089903  
-    132  0.254442  
-    133  0.049238  
-    134  0.055669  
-    
-    [135 rows x 8 columns]
-    
-
-Same results can be obtained by providing a data frame sub_idz with male and female IDs in the first and second columns, provided these individuals are in Mendelian sampling (co-)variance data frame (msvmsc_g).
-
-
-```python
-df_zyg = sel_z.iloc[0:5, 0:2]        # dataframe containing a subset of mate pairs
-start = time.time()
-sel_z = msq.selstrat_z(selstrat="PBTI", info=data, sub_idz=df_zyg,
-                       msvmsc=msvmsc_g, throrconst=0.05,
-                       selmale=None, selfm=None, maxmale=None)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-print(sel_z)
-```
-
-    Time taken:  0.34 secs
-      MaleID FemaleID  MaleIndex  FemaleIndex       fat        pH   protein  \
-    0  10009    10131          8          130  0.000000  0.015273  0.196209   
-    1  10009    10132          8          131  0.000000  0.000266  0.009127   
-    2  10046    10133         45          132  0.332060  0.321037  0.168052   
-    3  10046    10134         45          133  0.252743  0.251529  0.151957   
-    4  10031    10135         30          134  0.000000  0.000101  0.000019   
-    
-                ABV  
-    0  2.324804e-03  
-    1  1.146761e-06  
-    2  5.167133e-01  
-    3  4.210896e-01  
-    4  9.598058e-10  
-    
-
-## Derivation of similarity matrices based on Mendelian sampling values
-1. `Gametic approach`: This can be done using the function `msq.simmat_g`. The function returns a named list containing similarity or standardized similarity matrix based on aggregate genotypes for each group. If parameter chrinterest is a string of 'all' or 'none,’ all or none of the chromosome-wise similarity matrices are saved to file. If chrinterest is a list (e.g., [4,
-14]), similarity matrices for only chromosomes 4 and 14 will be saved to file. Trait-specific (standardized or) similarity matrices will be saved to file when save=True. If stdsim=True, a standardized similarity matrix is outputted. If progress = True, the progress of the calculations is printed to screen.
-
-
-
-```python
-start = time.time()
-sim_g = msq.simmat_g(info=data, covmat=covmatrices, sub_id=df_gam,
-                     chrinterest="none", save=False, stdsim=False,
-                     progress=True)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-sim_g
-```
-
-    Processing group  M
-    Progress: |██████████████████████████████████████████████████| 100% Complete
+    Formatting phased haplotypes
+    phased genotype data has 530 rows and 10304 columns
+    Allele 1: 829180
+    Allele 2: 4631940
+    Major allele: 2
+    Progress: |##################################################| 100% Complete
     Creating similarity matrix based on aggregate genotype
-    Progress: |██████████████████████████████████████████████████| 100% Complete
-    Processing group  F
-    Progress: |██████████████████████████████████████████████████| 100% Complete
+    Progress: |##################################################| 100% Complete
+    Gametic similarity:
+     [array([[0.00029632, 0.0003095 , 0.00035975, ..., 0.0001671 , 0.00026274,
+            0.00027542],
+           [0.0003095 , 0.11602936, 0.11822478, ..., 0.00084436, 0.11597751,
+            0.11934897],
+           [0.00035975, 0.11822478, 0.12081815, ..., 0.00094194, 0.11827583,
+            0.12172188],
+           ...,
+           [0.0001671 , 0.00084436, 0.00094194, ..., 0.00043942, 0.0007067 ,
+            0.0007694 ],
+           [0.00026274, 0.11597753, 0.11827582, ..., 0.0007067 , 0.11631628,
+            0.11959661],
+           [0.00027542, 0.11934897, 0.12172189, ..., 0.0007694 , 0.11959659,
+            0.12324664]], dtype=float32)]
+    phased genotype data has 20 rows and 10304 columns
     Creating similarity matrix based on aggregate genotype
-    Progress: |██████████████████████████████████████████████████| 100% Complete
-    Time taken:  6.85 secs
+    Standardized similarity matrix for 10 individuals:
+     [array([[1.        , 0.9969873 , 0.99560523, 0.9969822 , 0.9968444 ,
+            0.99743974, 0.99708706, 0.99743885, 0.9972078 , 0.99442196],
+           [0.99698645, 1.        , 0.9965543 , 0.996747  , 0.9971177 ,
+            0.99782145, 0.99778724, 0.9978411 , 0.99647135, 0.99445313],
+           [0.99560404, 0.99655426, 1.        , 0.99580735, 0.9954717 ,
+            0.9963611 , 0.9963444 , 0.9959287 , 0.9958141 , 0.99449515],
+           [0.99698144, 0.99674803, 0.99580866, 1.        , 0.9960099 ,
+            0.9966733 , 0.996063  , 0.9964043 , 0.996654  , 0.99438465],
+           [0.9968437 , 0.9971175 , 0.99547184, 0.99600893, 1.        ,
+            0.9969095 , 0.9967607 , 0.9973844 , 0.99724543, 0.99437654],
+           [0.9974386 , 0.9978213 , 0.9963611 , 0.9966718 , 0.9969095 ,
+            1.        , 0.9979273 , 0.99779   , 0.99621075, 0.9954104 ],
+           [0.99708647, 0.9977878 , 0.99634516, 0.996063  , 0.9967614 ,
+            0.99792814, 1.        , 0.99793285, 0.99616843, 0.9964428 ],
+           [0.99743766, 0.9978412 , 0.99592966, 0.9964032 , 0.99738467,
+            0.99779046, 0.99793243, 1.        , 0.9968518 , 0.99602884],
+           [0.9972069 , 0.9964716 , 0.9958148 , 0.99665356, 0.99724585,
+            0.99621147, 0.9961686 , 0.9968521 , 1.        , 0.99454737],
+           [0.99442106, 0.9944548 , 0.9944967 , 0.9943849 , 0.9943769 ,
+            0.995411  , 0.99644274, 0.9960302 , 0.9945471 , 1.        ]],
+          dtype=float32)]
+    Processing M
+    Formatting phased haplotypes
+    phased genotype data has 6 rows and 10304 columns
+    Allele 1: 9425
+    Allele 2: 52399
+    Major allele: 2
+    Processing F
+    Formatting phased haplotypes
+    phased genotype data has 6 rows and 10304 columns
+    Allele 1: 9471
+    Allele 2: 52353
+    Major allele: 2
+    Processing similarity matrices for zygotes
+    Progress: |##################################################| 100% Complete
+    Creating similarity matrix based on aggregate genotype
+    Progress: |##################################################| 100% Complete
+    Zygotic similarity for parent pairs:
+     [[1.         0.721888   0.00930449]
+     [0.72188777 1.         0.6952067 ]
+     [0.00930449 0.6952067  1.        ]]
     
 
 
+## 3.5. Computing Selection Criteria
+**Function**: `msq.selstrat(gmat, meff, group, **kwargs)`
 
-
-    {'M': [array([[0.00485757, 0.00267605, 0.00388947, 0.00525877],
-             [0.00267605, 0.00504775, 0.00347402, 0.00408954],
-             [0.00388947, 0.00347402, 0.00809001, 0.0053334 ],
-             [0.00525877, 0.00408954, 0.0053334 , 0.13166252]])],
-     'F': [array([[0.00470106, 0.00280465, 0.00311769],
-             [0.00280465, 0.00481454, 0.0030983 ],
-             [0.00311769, 0.0030983 , 0.00596466]])]}
-
-
-
-When group-specific maps are used, as seen in the example above, a named list of group-specific similarity matrices is returned (e.g., M and F). Because the individuals are organized into groups, the order of the individuals in each group's similarity matrix is saved in a (csv) file. However, if an average genetic map is used, a similarity matrix for all groups will be returned. In this case, individual orders are not saved to file because they remain unmodified.
-
-2. `Zygotic approach`: Similarity matrices between Mendelian sampling values of zygotes produced by mate pairs can be derived using the function `msq.simmat_z`. A data frame with IDs of parent pairs must be provided to use this function. For example, if the selection criterion is estimated using the function `msq.selstrat_z`, the IDs in the first and second columns of the data frame may be provided as sub_idz parameter.
+**Purpose**:  Calculate GEBV [4], usefulness criterion (UC) [5], or multi-trait index (adapted from [6]) for gametes or zygotes.
 
 
 ```python
-start = time.time()
-sim_z = msq.simmat_z(info=data, sub_idz=df_zyg, covmat=covmatrices,
-                     chrinterest="none", stdsim=True, save=False,
-                     progress=False)
-print('Time taken: ', round(time.time() - start, 2), 'secs')
-sim_z
+# Example 1: Single-trait GEBV for entire dataset
+single_trait_meff = meff.iloc[:, [0]]  # e.g., "fat" only
+res_gebv = msq.selstrat(
+    gmat       = gmat,
+    meff       = single_trait_meff,
+    group      = group,
+    criterion  = "gebv",
+    haplotype  = True,
+    center     = False
+)
+print("Single-trait GEBV:\n", res_gebv.head())
+
+# Example 2: Multi-trait index with 10% selection
+res_index = msq.selstrat(
+    gmat       = gmat,
+    meff       = meff,
+    group      = group,
+    indwt      = index_weights,
+    msvmsc     = msvmsc_g,
+    criterion  = "index",
+    prop_sel   = 0.1,
+    aggregate  = True
+)
+print("Multi-trait index selection:\n", res_index.head())
+
+# Example 3: Zygotic approach (two-column sub_id)
+zygotic_subid = pd.DataFrame({
+    "Male_ID":   [10001, 10002],
+    "Female_ID": [10261, 10262]
+})
+zygote_gebv = msq.selstrat(
+    gmat       = gmat,
+    meff       = meff,
+    group      = group_sexes,
+    indwt      = index_weights,
+    sub_id     = zygotic_subid,
+    criterion  = "gebv"
+)
+print("Zygotic approach (GEBV):\n", zygote_gebv)
+
 ```
 
-    Time taken:  6.52 secs
+    phased genotype data has 530 rows and 10304 columns
+    Single-trait GEBV:
+           ID Group       fat
+    0  10001     F  0.231010
+    1  10002     F -0.076839
+    2  10003     F -0.070086
+    3  10004     F  0.231345
+    4  10005     F -0.037961
+    phased genotype data has 530 rows and 10304 columns
+    Multi-trait index selection:
+           ID Group       fat   protein        pH       ABV
+    0  10001     F  0.363604  0.242749  0.173021  0.754689
+    1  10002     F  0.412604  0.270716  0.216208  0.896694
+    2  10003     F  0.420838  0.323337  0.260004  0.998957
+    3  10004     F  0.366108  0.218948  0.226536  0.781639
+    4  10005     F  0.451835  0.248698  0.224403  0.920710
+    phased genotype data has 530 rows and 10304 columns
+    Zygotic approach (GEBV):
+         M_ID   F_ID       fat   protein        pH       ABV
+    0  10001  10261  0.187088  0.102256  0.092694  0.382038
+    1  10002  10262  0.039162 -0.007854  0.016210  0.047518
     
 
+Key:
+- `"gebv"` => basic GEBVs
+- `"uc"` => usefulness criterion => GEBV + k * MSV weighting (requires `prop_sel` & `msvmsc`)
+- `"index"` => GEBV + k * MSV weighting (requires `prop_sel` & ``msvmsc```)
 
+## Concluding Remarks
+This illustration walks through typical PyMSQ workflows, from data loading to Mendelian sampling analysis, similarity matrix generation, and selection strategy application. Adjust parameters, subset IDs, or marker maps to match your breeding context. For more advanced or large-scale scenarios (e.g., thousands of animals, high-density markers), you may want to split data by chromosome.
 
-
-    array([[1.        , 0.76503754, 0.2302074 , 0.19034405, 0.48636912],
-           [0.76503754, 1.        , 0.31258909, 0.30383955, 0.60487113],
-           [0.2302074 , 0.31258909, 1.        , 0.97591852, 0.30035285],
-           [0.19034405, 0.30383955, 0.97591852, 1.        , 0.30850437],
-           [0.48636912, 0.60487113, 0.30035285, 0.30850437, 1.        ]])
-
-
+If you have questions or feature requests, please consult the PyMSQ GitHub repository for issue reporting and community support.
 
 ## References
-1. Musa AA, Reinsch N. A similarity matrix for hedging haplotype diversity among parents in genomic selection. Submitted. 2021.
-2. Melzer N, Wittenburg D, Repsilber D. Integrating Milk Metabolite Profile Information for the Prediction of Traditional Milk Traits Based on SNP Information for Holstein Cows. PLoS One. 2013;8:e70256.
-3. Hampel A, Teuscher F, Gomez-Raya L, Doschoris M, Wittenburg D. Estimation of Recombination Rate and Maternal Linkage Disequilibrium in Half-Sibs. Front Genet. 2018;9 JUN:186.
-4. Bonk S, Reichelt M, Teuscher F, Segelke D, Reinsch N. Mendelian sampling covariability of marker effects and genetic values. Genet Sel Evol. 2016;48:1–11. doi:10.1186/s12711-016-0214-0.
-5. Santos DJA, Cole JB, Lawlor TJ, VanRaden PM, Tonhati H, Ma L. Variance of gametic diversity and its application in selection programs. J Dairy Sci. 2019;102:5279–94.
+1. Musa, A. A., & Reinsch, N. (2025). A similarity matrix for hedging haplotype diversity among parents in genomic selection. *Journal of Animal Breeding and Genetics*, https://doi.org/10.1111/jbg.12930.
+
+2. Melzer, N., Wittenburg, D., & Repsilber, D. (2013). Integrating milk metabolite profile information for the prediction of traditional milk traits based on SNP information for Holstein cows. *PLoS ONE*, *8*, e70256. 
+
+3. Hampel, A., Teuscher, F., Gomez-Raya, L., Doschoris, M., & Wittenburg, D. (2018). Estimation of recombination rate and maternal linkage disequilibrium in half-sibs. *Frontiers in Genetics*, *9* (JUN), 186.
+
+4. Meuwissen, T. H. E., Hayes, B. J., & Goddard, M. E. (2001). Prediction of total genetic value using genome-wide dense marker maps. *Genetics*, *157*, 1819–1829.
+
+5. Lehermeier, C., Teyssèdre, S., & Schön, C. C. (2017). Genetic gain increases by applying the usefulness criterion with improved variance prediction in selection of crosses. *Genetics*, *207*, 1651–1661.
+
+6. Bijma, P., Wientjes, Y. C. J., & Calus, M. P. L. (2020). Breeding top genotypes and accelerating response to gametic variance. *Genetics*, *214*, 91–107.
