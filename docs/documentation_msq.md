@@ -1,7 +1,7 @@
 # Documentation of PyMSQ / `msq` Module
 
 **Authors:** Abdulraheem Musa and Norbert Reinsch  
-**Last Updated:** 26.02.2025
+**Last Updated:** 08.04.2025
 
 
 This module (`msq.py`) is part of the **PyMSQ** package, offering a suite of functions for genetic analysis and selection strategies:
@@ -347,5 +347,3 @@ res_uc.head()
     Save/load uses pandas or NumPy `.npy` formats when indicated by `kwargs` (e.g., `save=True`).
 - Performance:
     For large datasets (many markers or individuals) and limited RAM, consider chromosome-wise analysis and summing up results.
-
-

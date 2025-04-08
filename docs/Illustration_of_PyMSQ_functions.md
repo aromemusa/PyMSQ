@@ -1,5 +1,8 @@
 # Illustration: Utilizing Functions of PyMSQ
 
+**Authors:** Abdulraheem Musa and Norbert Reinsch  
+**Last Updated:** 08.04.2025
+
 ## Introduction
 This guide demonstrates **practical applications** of **PyMSQ** functions using an example dataset of **Holstein-Friesian cattle**. PyMSQ is a **comprehensive tool** for deriving Mendelian sampling–related quantities such as (co)variances, correlations, and similarity matrices. The workflow involves:
 
@@ -29,6 +32,10 @@ from PyMSQ import msq
 # from PyMSQ.msq import load_package_data, expldmat, msvarcov, ...
 
 ```
+
+    C:\Users\musa\AppData\Roaming\Python\Python39\site-packages\pandas\core\arrays\masked.py:60: UserWarning: Pandas requires version '1.3.6' or newer of 'bottleneck' (version '1.3.5' currently installed).
+      from pandas.core import (
+    
 
 Note: Ensure you have installed PyMSQ (e.g., pip install PyMSQ).
 
@@ -310,7 +317,7 @@ print("MSV with group-specific map:\n", msvmsc_sex_map.head())
     Allele 2: 4631940
     Major allele: 2
     Progress: |##################################################| 100% Complete
-    Computed MSV for all individuals in 1.29 sec.
+    Computed MSV for all individuals in 2.76 sec.
            ID Group       fat   protein_fat   protein    pH_fat  pH_protein  \
     0  10001     F  0.000023  1.895190e-06  0.000115  0.000011   -0.000001   
     1  10002     F  0.022089  1.588602e-02  0.011507  0.012589    0.009055   
@@ -577,7 +584,7 @@ print("Zygotic approach (GEBV):\n", zygote_gebv)
     phased genotype data has 530 rows and 10304 columns
     Multi-trait index selection:
            ID Group       fat   protein        pH       ABV
-    0  10001     F  0.363604  0.242749  0.173021  0.754688
+    0  10001     F  0.363604  0.242749  0.173021  0.754689
     1  10002     F  0.412604  0.270716  0.216208  0.896694
     2  10003     F  0.420838  0.323337  0.260004  0.998957
     3  10004     F  0.366108  0.218948  0.226536  0.781639
