@@ -40,11 +40,10 @@ def load_package_data():
             # Read data from the package resource as a stream:
             with pkg_resources.resource_stream(__name__, file_path) as stream:
                 # For genotype/pedigree, assume no header; for others, default to standard usage
-                if key in ['genotype', 'pedigree']:
+                if key in ['genotype_data']:
                     df = pd.read_table(stream, sep=" ", header=None)
                 else:
                     df = pd.read_table(stream, sep=" ")
-
                 data_frames[key] = df
         except FileNotFoundError:
             # If pkg_resources fails to open, it raises a FileNotFoundError
