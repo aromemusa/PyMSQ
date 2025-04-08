@@ -44,7 +44,6 @@ def load_package_data():
                     df = pd.read_table(stream, sep=" ", header=None)
                 else:
                     df = pd.read_table(stream, sep=" ")
-
                 data_frames[key] = df
         except FileNotFoundError:
             # If pkg_resources fails to open, it raises a FileNotFoundError
