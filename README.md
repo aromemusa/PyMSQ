@@ -1,5 +1,7 @@
 # PyMSQ: a Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18643470.svg)](https://doi.org/10.5281/zenodo.18643470)
+
 PyMSQ is an open-source Python package that enables breeders, geneticists, and quantitative biologists to estimate Mendelian sampling–related metrics—including variance, covariance, and haplotype-based similarities—in both plant and animal species. For simplicity, PyMSQ consists of a single module, [`msq`](docs/documentation_msq.md).
 
 ## Key Features
@@ -77,6 +79,8 @@ If you use PyMSQ in academic work, please cite the following papers:
 1. Musa, A. A., & Reinsch, N. (2026). PyMSQ: a Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection. *BMC Bioinformatics*, https://doi.org/10.1186/s12859-026-06392-5.
 
 2. Musa, A. A., & Reinsch, N. (2025). A similarity matrix for hedging haplotype diversity among parents in genomic selection. *Journal of Animal Breeding and Genetics*, https://doi.org/10.1111/jbg.12930.
+
+3. Zenodo (software version v0.1.2): https://doi.org/10.5281/zenodo.18643470
 
 
 
