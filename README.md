@@ -19,7 +19,7 @@ PyMSQ is an open-source Python package that enables breeders, geneticists, and q
 PyMSQ is available on PyPI and can be installed via:
 
 ```bash
-python -m pip install PyMSQ
+python -m pip install PyMSQ 
 ```
     
 
