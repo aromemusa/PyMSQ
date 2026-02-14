@@ -21,6 +21,7 @@ PyMSQ is available on PyPI and can be installed via:
 ```bash
 python -m pip install PyMSQ 
 ```
+
     
 
 ## Basic Usage
