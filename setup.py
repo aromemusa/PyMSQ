@@ -12,6 +12,14 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/aromemusa/PyMSQ",
+    project_urls={
+    "Source": "https://github.com/aromemusa/PyMSQ",
+    "Bug Tracker": "https://github.com/aromemusa/PyMSQ/issues",
+    "Documentation": "https://github.com/aromemusa/PyMSQ/tree/main/docs",
+    "Zenodo (v0.1.2 DOI)": "https://doi.org/10.5281/zenodo.18643470",
+    "Software paper": "https://doi.org/10.1186/s12859-026-06392-5",
+    "Method paper": "https://doi.org/10.1111/jbg.12930",
+    },
     packages=find_packages(include=["PyMSQ", "PyMSQ.*"]),
     license="MIT",
     keywords=["Mendelian sampling", "variance", "covariance", "similarity", "selection", "haplotype diversity"],
@@ -35,3 +43,4 @@ setup(
     package_data={
         "PyMSQ": ["data/*.txt"]}
 )
+
