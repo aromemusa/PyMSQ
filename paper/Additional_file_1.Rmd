@@ -15,22 +15,37 @@ options(scipen = 999)  # Prevent scientific notation on axes
 ```
 
 # Overview
-This document loads data, processes it, and generates three figures along with several performance comparison tables:
+This document loads data, processes it, and generates the figures and performance comparison tables referred to in the main manuscript:
 
-1. Figure 1: Density plots of Mendelian sampling variances and trait correlations.
+1. Figure 1: Density plots of Mendelian sampling variances (MSV) for three milk traits and of the corresponding Mendelian correlations (MSC).
 
-2. Figure 2: Similarity matrices and Euclidean clustering of the matrices for the aggregate genotype of milk traits.
+2. Figure 2: Unstandardized and standardized similarity matrices for the aggregate genotype of the three-trait index, with cows grouped by paternal half-sib family.
 
-3. Figure 3: Benchmark plots comparing computation time and memory usage.
+3. Figure 3: Benchmark plots comparing computation time and memory usage for PyMSQ and gamevar in two single-chromosome stress-test scenarios.
+4. Performance Comparison Tables 1 and 2: Summaries of the single-chromosome benchmarks in the Individuals and Markers scenarios, reporting mean runtime (in minutes), peak memory usage (in GB), and time and memory ratios for PyMSQ versus gamevar.
+5. Performance Table 3: Benchmark results for PyMSQ’s construction of the haplotype-based similarity matrix in the same Individuals and Markers scenarios.
+6. Performance Table 4: Runtime and peak memory usage for MSV/MSC in the 50k-chip multi-chromosome benchmark, contrasting single-trait and ten-trait indices across parent-set sizes.
+7. Performance Table 5: Runtime and peak memory usage for the aggregate-genotype similarity matrix in the same 50k-chip multi-chromosome benchmark for single-trait and ten-trait indices.
 
-4. Performance Comparison Tables 1 and 2: Summaries from the same benchmark dataset used in Figure 3. These tables report the mean computation time (in minutes) and peak memory usage (in GB) for PyMSQ and gamevar.
+# Data and benchmark scenarios
 
-5. Performance Table 3: Benchmarking of similarity matrices using PyMSQ.
+The analyses in this document draw on three related datasets:
 
+1. **Holstein–Friesian example data (bundled with PyMSQ).** This dataset comprises 265 Holstein–Friesian cows from five paternal half-sib families. For each cow, phased genotypes, a physical and approximate genetic map, and marker-effect estimates are available for three milk traits: fat yield (FY), protein yield (PY), and pH. These files (map, phased genotypes, marker effects, and pedigree information) are distributed with the PyMSQ package and provide the basis for the empirical MSV/MSC and similarity-matrix examples.
+
+2. **Single-chromosome benchmark scenarios.** To benchmark PyMSQ against gamevar, we use synthetic single-chromosome datasets under two stress-test scenarios, each analyzed for ten traits:
+   - **Individuals scenario:** the number of markers on the chromosome is fixed at 1,000, while the number of individuals increases from 5,000 to 100,000 to study scaling in population size.
+   - **Markers scenario:** the number of individuals is fixed at 500, while the number of SNPs on the chromosome increases from 2,500 to 50,000 to study scaling in marker density.  
+
+   For each combination of scenario and size, we record computation time (in seconds, later converted to minutes for presentation) and peak memory usage (in GB) for MSV/MSC and for the haplotype-based similarity matrix.
+
+3. **50k-chip multi-chromosome benchmark.** To complement the single-chromosome stress tests with a more conventional whole-genome setting, we construct a benchmark based on a bovine 50k marker map with 39,780 autosomal SNPs distributed over 29 chromosomes. Using this map, we simulate phased haplotypes and marker effects for a single-trait and a ten-trait index and compute MSV/MSC and aggregate-genotype similarity matrices for candidate-parent sets ranging from 500 to 100,000 parents, recording runtime and peak memory usage for each configuration.
 
 # 1. Density Plots
-### Import Packages 
-We load required libraries 
+This section applies PyMSQ to the bundled Holstein–Friesian dataset to compute Mendelian sampling variances and correlations for the three milk traits (fat yield, protein yield, and pH), and generates the density plots shown as Figure 1 in the main manuscript.
+
+### Import packages 
+We load the required libraries 
 
 ```{r, message=F, warning=F}
 library(ggplot2)      # For creating plots
@@ -39,7 +54,7 @@ library(corrplot)     # For correlation plots
 require(RColorBrewer) # For color palettes
 library(pheatmap)     # For heatmaps
 library(ggpubr)       # For arranging ggplot figures
-library(plyr)         # For data manipulation
+library(dplyr)         # For data manipulation
 library(knitr)        # For document generation
 library(reticulate)   # For interfacing with Python
 ```
@@ -53,9 +68,6 @@ library(reticulate)   # For interfacing with Python
 
 msq <- import("PyMSQ")
 data <- msq$load_package_data()  # now you're set to proceed below
-
-
-data <- msq$load_package_data()
 gmap <- data[["chromosome_data"]]        # genetic map
 meff <- data[["marker_effect_data"]]     # marker effects 
 gmat <- data[["genotype_data"]]          # phased genotype 
@@ -137,7 +149,8 @@ knitr::include_graphics("Figure1.png")
 
 
 # 2. Similarity Matrices
-We then derive similarity matrices.
+Using the same Holstein–Friesian dataset and three-trait index, we next construct a haplotype-based similarity matrix for the aggregate genotype. Diagonal elements correspond to each cow’s Mendelian sampling variance, and off-diagonals quantify the shared heterozygous segments between pairs of cows. This section derives the unstandardized and standardized similarity matrices used to produce Figure 2 in the main manuscript.
+
 ```{r, message=F, warning=F, results='hide'}
 # Derive similarity matrix
 sim <- msq$simmat(gmat, gmap, meff, group = group, exp_ldmat = exp_ldmat, 
@@ -364,93 +377,80 @@ knitr::include_graphics("Figure3.png")
 ```
 
 # 4. Performance Comparison Tables
-We compare PyMSQ and gamevar using two benchmark datasets:
+Using the single-chromosome benchmark scenarios described above, we compare PyMSQ and gamevar in two settings:
 
-- Individuals Dataset: Number of markers is fixed at 1000, while the number of individuals varies from 5000 to 100000.
+- **Individuals scenario:** the number of markers is fixed at 1,000, while the number of individuals varies from 5,000 to 100,000.
 
-- Markers Dataset: Number of individuals is fixed at 500, while the number of markers varies from 2500 to 50000.
-Both datasets involve 10 traits and 1 chromosome.
+- **Markers scenario:** the number of individuals is fixed at 500, while the number of markers varies from 2,500 to 50,000.
+
+Both scenarios involve ten traits on a single chromosome. For each combination, we summarize mean runtime (minutes), peak memory usage (GB), and the corresponding time and memory ratios (gamevar/PyMSQ and PyMSQ/gamevar, respectively), matching the benchmark plots in Figure 3 of the main manuscript.
+
 
 ```{r}
 # For the individuals dataset:
 time_ind_summary <- perf_ind %>%
   group_by(no_individuals) %>%
-  summarise(
-    PyMSQ_time = mean(time_PyMSQ, na.rm = TRUE) / 60,
-    Gamevar_time = mean(time_gamevar, na.rm = TRUE) / 60
-  ) %>%
+  summarise(PyMSQ_time = mean(time_PyMSQ, na.rm = TRUE) / 60,
+            Gamevar_time = mean(time_gamevar, na.rm = TRUE) / 60) %>%
   mutate(Fold_Faster = Gamevar_time / PyMSQ_time)
 
 mem_ind_summary <- perf_ind %>%
   group_by(no_individuals) %>%
-  summarise(
-    PyMSQ_memory = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
-    Gamevar_memory = mean(peak_memory_usage_gamevar, na.rm = TRUE)
-  ) %>%
+  summarise(PyMSQ_memory = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
+            Gamevar_memory = mean(peak_memory_usage_gamevar, na.rm = TRUE)) %>%
   mutate(Memory_Ratio = PyMSQ_memory / Gamevar_memory)
 
 # Merge the summaries for individuals:
 individuals_summary <- left_join(time_ind_summary, mem_ind_summary, by = "no_individuals") %>%
-  rename(
-    `Number of Individuals` = no_individuals,
-    `PyMSQ Time (min)` = PyMSQ_time,
-    `Gamevar Time (min)` = Gamevar_time,
-    `Time Ratio (Gamevar/PyMSQ)` = Fold_Faster,
-    `PyMSQ Memory (GB)` = PyMSQ_memory,
-    `Gamevar Memory (GB)` = Gamevar_memory,
-    `Memory Ratio (PyMSQ/Gamevar)` = Memory_Ratio
-  )
+  rename(`Number of Individuals` = no_individuals,
+         `PyMSQ Time (min)` = PyMSQ_time,
+         `Gamevar Time (min)` = Gamevar_time,
+         `Time Ratio (Gamevar/PyMSQ)` = Fold_Faster,
+         `PyMSQ Memory (GB)` = PyMSQ_memory,
+         `Gamevar Memory (GB)` = Gamevar_memory,
+         `Memory Ratio (PyMSQ/Gamevar)` = Memory_Ratio)
 
 # For the markers dataset:
 time_mark_summary <- perf_mark %>%
   group_by(no_markers) %>%
-  summarise(
-    PyMSQ_time = mean(time_PyMSQ, na.rm = TRUE) / 60,
-    Gamevar_time = mean(time_gamevar, na.rm = TRUE) / 60
-  ) %>%
+  summarise(PyMSQ_time = mean(time_PyMSQ, na.rm = TRUE) / 60,
+            Gamevar_time = mean(time_gamevar, na.rm = TRUE) / 60) %>%
   mutate(Fold_Faster = Gamevar_time / PyMSQ_time)
 
 mem_mark_summary <- perf_mark %>%
   group_by(no_markers) %>%
-  summarise(
-    PyMSQ_memory = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
-    Gamevar_memory = mean(peak_memory_usage_gamevar, na.rm = TRUE)
-  ) %>%
+  summarise(PyMSQ_memory = mean(peak_memory_usage_PyMSQ, na.rm = TRUE),
+            Gamevar_memory = mean(peak_memory_usage_gamevar, na.rm = TRUE)) %>%
   mutate(Memory_Ratio = PyMSQ_memory / Gamevar_memory)
 
 # Merge the summaries for markers:
 markers_summary <- left_join(time_mark_summary, mem_mark_summary, by = "no_markers") %>%
-  rename(
-    `Number of Markers` = no_markers,
-    `PyMSQ Time (min)` = PyMSQ_time,
-    `Gamevar Time (min)` = Gamevar_time,
-    `Time Ratio (Gamevar/PyMSQ)` = Fold_Faster,
-    `PyMSQ Memory (GB)` = PyMSQ_memory,
-    `Gamevar Memory (GB)` = Gamevar_memory,
-    `Memory Ratio (PyMSQ/Gamevar)` = Memory_Ratio
-  )
+  rename(`Number of Markers` = no_markers,
+         `PyMSQ Time (min)` = PyMSQ_time,
+         `Gamevar Time (min)` = Gamevar_time,
+         `Time Ratio (Gamevar/PyMSQ)` = Fold_Faster,
+         `PyMSQ Memory (GB)` = PyMSQ_memory,
+         `Gamevar Memory (GB)` = Gamevar_memory,
+         `Memory Ratio (PyMSQ/Gamevar)` = Memory_Ratio)
 
 ```
 ### Display the table for the individuals dataset:
 ```{r}
-kable(individuals_summary, 
-      caption = "Performance Comparison (Individuals Dataset)", digits = 4)
+kable(individuals_summary,
+      caption = "Performance Comparison (Individuals scenario)", digits = 4)
 ```
 
 ### Display the table for the markers dataset:
 ```{r}
-kable(markers_summary, caption = "Performance Comparison (Markers Dataset)", 
+kable(markers_summary, caption = "Performance Comparison (Markers scenario)", 
       digits = 4)
 
 ```
 
 # 5. Performance Table 3: Benchmark of similarity matrices
-Using the same data set for benchmarking Mendelian (co-variability), we benchmarked the time and peak memory usage: 
+Using the same single-chromosome Individuals and Markers scenarios, we benchmarked PyMSQ’s construction of the haplotype-based similarity matrix. For each combination of population size and marker density, we report mean runtime (minutes) and peak memory usage (GB) across replicates, separately for the Individuals and Markers scenarios. 
 
 ```{r message=F, warning=F}
-library(dplyr)
-library(knitr)
-
 # Read csv files
 perf_ind <- read.csv("similarity_unsaved.csv")
 perf_mark <- read.csv("similarity_mark_unsaved.csv")
@@ -458,70 +458,115 @@ perf_mark <- read.csv("similarity_mark_unsaved.csv")
 # Compute computation time (in minutes) + SD for individuals
 time_ind_summary <- perf_ind %>%
   group_by(no_individuals) %>%
-  summarise(
-    times = mean(time, na.rm = TRUE) / 60,
-    time_sd = sd(time, na.rm = TRUE) / 60
-  )
+  summarise(times = mean(time, na.rm = TRUE) / 60,
+            time_sd = sd(time, na.rm = TRUE) / 60)
 
 mem_ind_summary <- perf_ind %>%
   group_by(no_individuals) %>%
-  summarise(
-    memory = mean(peak_memory_usage, na.rm = TRUE),
-    memory_sd = sd(peak_memory_usage, na.rm = TRUE)
-  )
+  summarise(memory = mean(peak_memory_usage, na.rm = TRUE),
+            memory_sd = sd(peak_memory_usage, na.rm = TRUE))
 
 # Markers scenario
 time_mark_summary <- perf_mark %>%
   group_by(no_markers) %>%
-  summarise(
-    times = mean(time, na.rm = TRUE) / 60,
-    time_sd = sd(time, na.rm = TRUE) / 60
-  )
+  summarise(times = mean(time, na.rm = TRUE) / 60,
+            time_sd = sd(time, na.rm = TRUE) / 60)
 
 mem_mark_summary <- perf_mark %>%
   group_by(no_markers) %>%
-  summarise(
-    memory = mean(peak_memory_usage, na.rm = TRUE),
-    memory_sd = sd(peak_memory_usage, na.rm = TRUE)
-  )
+  summarise(memory = mean(peak_memory_usage, na.rm = TRUE),
+            memory_sd = sd(peak_memory_usage, na.rm = TRUE))
 
 # Merge time & memory for Individuals
 ind_summary <- left_join(time_ind_summary, mem_ind_summary, by = "no_individuals") %>%
-  mutate(
-    `Time (min)` = paste0(round(times, 2), " ± ", round(time_sd, 2)),
-    `Memory (GB)` = paste0(round(memory, 2), " ± ", round(memory_sd, 2))
-  ) %>%
+  mutate(`Time (min)` = paste0(round(times, 2), " ± ", round(time_sd, 2)),
+         `Memory (GB)` = paste0(round(memory, 2), " ± ", round(memory_sd, 2))) %>%
   select(no_individuals, `Time (min)`, `Memory (GB)`)
 
 # Merge time & memory for Markers
 mark_summary <- left_join(time_mark_summary, mem_mark_summary, by = "no_markers") %>%
-  mutate(
-    `Time (min)` = paste0(round(times, 2), " ± ", round(time_sd, 2)),
-    `Memory (GB)` = paste0(round(memory, 2), " ± ", round(memory_sd, 2))
-  ) %>%
+  mutate(`Time (min)` = paste0(round(times, 2), " ± ", round(time_sd, 2)),
+         `Memory (GB)` = paste0(round(memory, 2), " ± ", round(memory_sd, 2))) %>%
   select(no_markers, `Time (min)`, `Memory (GB)`)
 
 # Rename to avoid duplicates
 ind_summary_renamed <- ind_summary %>%
-  rename(
-    "No. Individuals" = no_individuals,
-    "Time (min) [Ind]" = "Time (min)",
-    "Memory (GB) [Ind]" = "Memory (GB)"
-  )
+  rename("No. Individuals" = no_individuals, "Time (min) [Ind]" = "Time (min)",
+         "Memory (GB) [Ind]" = "Memory (GB)")
 
 mark_summary_renamed <- mark_summary %>%
-  rename(
-    "No. Markers" = no_markers,
-    "Time (min) [Mark]" = "Time (min)",
-    "Memory (GB) [Mark]" = "Memory (GB)"
-  )
+  rename("No. Markers" = no_markers, "Time (min) [Mark]" = "Time (min)",
+    "Memory (GB) [Mark]" = "Memory (GB)")
 
 # Combine side by side
 results <- cbind(ind_summary_renamed, mark_summary_renamed)
 
 # Print the merged table
-kable(results, caption = "Benchmark Results for Similarity Matrix")
+kable(results, caption = "Benchmark results for similarity matrices in the 
+      Individuals and Markers scenarios")
+
+
+```
+# 6. Performance Table 4: MSV/MSC on a 50k-chip multi-chromosome panel
+
+Using the 50k-chip multi-chromosome benchmark described in the main manuscript, we evaluated PyMSQ runtimes and peak memory usage for computing MSV/MSC for an aggregate index. Candidate-parent sets ranged from 500 to 100,000 parents, and we contrasted a single-trait index with a ten-trait index. The table below summarizes computation time (in minutes) and peak memory usage (in GB) for each parent-set size.
+
+```{r message=F, warning=F}
+# Read MSV/MSC benchmark results (50k chip, whole genome)
+msv_1  <- read.csv("MSV_MSC_50kchip_1_trait.csv")
+msv_10 <- read.csv("MSV_MSC_50kchip_10_trait.csv")
+
+# Prepare single-trait summary: convert time to minutes; memory already in GB
+msv_1_sum <- msv_1 %>% 
+  mutate(`Time (min) [1 trait]`  = round(time / 60, 2), 
+         `Memory (GB) [1 trait]` = round(peak_memory_usage, 2)) %>% 
+  select(no_individuals, `Time (min) [1 trait]`, `Memory (GB) [1 trait]`) %>% 
+  rename(`No. Parents` = no_individuals)
+
+# Prepare ten-trait summary: convert time to minutes; memory already in GB
+msv_10_sum <- msv_10 %>% 
+  mutate(`Time (min) [10 traits]`  = round(time / 60, 2), 
+         `Memory (GB) [10 traits]` = round(peak_memory_usage, 2)) %>% 
+  select(no_individuals,`Time (min) [10 traits]`, `Memory (GB) [10 traits]`) %>% 
+  rename(`No. Parents` = no_individuals)
+
+# Combine 1-trait and 10-trait summaries side by side
+table4 <- left_join(msv_1_sum, msv_10_sum, by = "No. Parents")
+
+kable(table4, caption = "Runtime and peak memory usage for PyMSQ when computing 
+MSV/MSC for single-trait and ten-trait indices in the 50k-chip multi-chromosome 
+benchmark.")
 
 
 ```
 
+# 7. Performance Table 5: similarity matrices on a 50k-chip multi-chromosome panel
+
+In the same 50k-chip setting, we benchmarked construction of the dense aggregate-genotype similarity matrix for the same series of parent-set sizes. As for MSV/MSC, we contrasted a single-trait index with a ten-trait index. Because the similarity matrix scales quadratically with the number of parents, this benchmark highlights the steeper increase in computational demands, particularly for the ten-trait index. The table summarizes runtime (minutes) and peak memory usage (GB) for each parent-set size.
+
+```{r message=F, warning=F}
+# Read similarity-matrix benchmark results (50k chip, whole genome)
+sim_1  <- read.csv("similarity_matrix_50kchip_1_trait.csv")
+sim_10 <- read.csv("similarity_matrix_50kchip_10_traits.csv")
+
+# Prepare single-trait summary: time to minutes; memory already in GB
+sim_1_sum <- sim_1 %>%
+mutate(`Time (min) [1 trait]`  = round(time / 60, 2), 
+       `Memory (GB) [1 trait]` = round(peak_memory_usage, 2)) %>% 
+  select(no_individuals, `Time (min) [1 trait]`, `Memory (GB) [1 trait]`) %>%
+  rename(`No. Parents` = no_individuals)
+
+# Prepare ten-trait summary: time to minutes; memory already in GB
+sim_10_sum <- sim_10 %>%
+  mutate(`Time (min) [10 traits]`  = round(time / 60, 2),
+         `Memory (GB) [10 traits]` = round(peak_memory_usage, 2)) %>%
+  select(no_individuals, `Time (min) [10 traits]`, `Memory (GB) [10 traits]`) %>% 
+  rename(`No. Parents` = no_individuals)
+
+# Combine 1-trait and 10-trait summaries side by side
+table5 <- left_join(sim_1_sum, sim_10_sum, by = "No. Parents")
+kable(table5, caption = "Runtime and peak memory usage for PyMSQ when 
+      constructing the aggregate-genotype similarity matrix for single-trait 
+      and ten-trait indices in the 50k-chip multi-chromosome benchmark.")
+
+```

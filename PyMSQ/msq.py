@@ -273,68 +273,37 @@ def formatgen(gmat, progress):
 @njit
 def calculate_mspar_spec_me(gmat, alleles):
     """
-    Recodes haplotypes for parent-specific marker effects using int16 for intermediate
-    computations and returns an int8 array.
-    
-    Args:
-        gmat (np.ndarray): Genetic marker matrix with an even number of rows.
-                           Rows are assumed to be paired (first row: paternal haplotype,
-                           second row: maternal haplotype, and so on).
-        alleles (list): List of alleles (int8), where the first element is the major allele,
-                        the second is the minor allele, and optionally the third is the missing allele.
-                        
-    Returns:
-        np.ndarray: A 2D int8 array of recoded parent-specific marker effects with shape 
-                    (n_individuals, n_markers), where n_individuals = gmat.shape[0] // 2.
-                    
-    Notes:
-        - For biallelic markers:
-            * If both haplotypes equal the major allele, the effect is 0.
-            * If both equal the minor allele, the effect is 0.
-            * If the haplotypes are (major, minor), the effect is 1.
-            * If the haplotypes are (minor, major), the effect is -1.
-        - When a third allele is provided, any genotype containing the missing allele is set to 0.
+    Parent-specific marker effects:
+      - hom major-major or minor-minor: 0
+      - (major, minor): +1
+      - (minor, major): -1
+      - any genotype containing missing: 0
     """
     n_ind = gmat.shape[0] // 2
     n_markers = gmat.shape[1]
-    
-    # Allocate output array as int8.
-    out = np.empty((n_ind, n_markers), dtype=np.int8)
-    
-    # Convert allele values to int16 to safely perform composite calculations.
-    major = np.int16(alleles[0])
-    minor = np.int16(alleles[1])
-    comp_hom_major = major * 10 + major
-    comp_hom_minor = minor * 10 + minor
-    comp_het_dom   = major * 10 + minor
-    comp_het_rec   = minor * 10 + major
-    
-    # Determine if a missing allele is provided.
-    has_missing = False
-    if len(alleles) == 3:
-        missing = np.int16(alleles[2])
-        has_missing = True
-        
-    # Loop over individuals and markers.
+    out = np.zeros((n_ind, n_markers), dtype=np.int8)
+    major = alleles[0]
+    minor = alleles[1]
+    has_missing = (len(alleles) == 3)
+    missing = alleles[2] if has_missing else 0
     for i in range(n_ind):
+        r1 = 2 * i
+        r2 = r1 + 1
         for j in range(n_markers):
-            # Convert the haplotype values to int16 for composite calculation.
-            a = np.int16(gmat[2 * i, j])
-            b = np.int16(gmat[2 * i + 1, j])
-            composite = a * 10 + b
-            
-            if composite == comp_hom_major or composite == comp_hom_minor:
+            a = gmat[r1, j]
+            b = gmat[r2, j]
+            if has_missing and (a == missing or b == missing):
                 out[i, j] = 0
-            elif composite == comp_het_dom:
+            elif a == major and b == major:
+                out[i, j] = 0
+            elif a == minor and b == minor:
+                out[i, j] = 0
+            elif a == major and b == minor:
                 out[i, j] = 1
-            elif composite == comp_het_rec:
+            elif a == minor and b == major:
                 out[i, j] = -1
             else:
-                if has_missing and (a == missing or b == missing):
-                    out[i, j] = 0
-                else:
-                    # Fallback: cast composite to int8 (may underflow if composite is large)
-                    out[i, j] = np.int8(composite)
+                out[i, j] = 0
     return out
 
 @njit(fastmath=True)
@@ -342,10 +311,11 @@ def trait_matrices(mspar_spec_me, meff):
     num_traits = meff.shape[1]
     mylist = []
     for nt in range(num_traits):
-        # Explicitly reshape the 1D array to (1, n_markers)
-        trait_matrix = mspar_spec_me * meff[:, nt].reshape(1, -1)
+        col = np.ascontiguousarray(meff[:, nt])
+        trait_matrix = mspar_spec_me * col.reshape(1, col.shape[0])
         mylist.append(trait_matrix)
     return mylist
+
 
 def addimsenumba(gmat, meff, alleles, center):
     """
@@ -1363,52 +1333,40 @@ def calculate_par_spec_me(gmat, alleles, haplotype):
     """
     # Sum up rows and columns
     if haplotype:
-        par_spec_me = (gmat[::2] * 10) + gmat[1::2]
-        # Determine the number of alleles and ref allele
-        no_alleles = len(alleles)
-        ref_allele = alleles[0]
-        if no_alleles == 2:
-            # Two alleles: ref allele and alt allele
-            alt_allele = alleles[1]
-            # Calculate the genotype combinations
-            homo_dom = ref_allele * 10 + ref_allele
-            homo_rec = alt_allele * 10 + alt_allele
-            het_dom = ref_allele * 10 + alt_allele
-            het_rec = alt_allele * 10 + ref_allele
-            # Assign values to the par_spec_me array based on genotype combinations
-            par_spec_me = np.where(par_spec_me == homo_rec, -1, par_spec_me)
-            par_spec_me = np.where((par_spec_me == het_dom) |
-                                   (par_spec_me == het_rec), 0, par_spec_me)
-            par_spec_me = np.where(par_spec_me == homo_dom, 1, par_spec_me)
-        else:
-            # Three alleles: ref allele, alt allele, and missing allele
-            alt_allele = alleles[1]
-            missing_allele = alleles[2]
-            # Calculate the genotype combinations
-            homo_dom = ref_allele * 10 + ref_allele
-            homo_rec = alt_allele * 10 + alt_allele
-            het_dom = ref_allele * 10 + alt_allele
-            het_rec = alt_allele * 10 + ref_allele
-            mis_maj = missing_allele * 10 + ref_allele
-            mis_min = missing_allele * 10 + alt_allele
-            maj_mis = ref_allele * 10 + missing_allele
-            min_mis = alt_allele * 10 + missing_allele
-            # Assign values to the par_spec_me array based on genotype combinations
-            for i in range(par_spec_me.shape[0]):
-                for j in range(par_spec_me.shape[1]):
-                    if par_spec_me[i, j] == homo_rec:
-                        par_spec_me[i, j] = -1
-                    elif par_spec_me[i, j] == het_dom or par_spec_me[i, j] == het_rec:
-                        par_spec_me[i, j] = 0
-                    elif par_spec_me[i, j] == homo_dom:
-                        par_spec_me[i, j] = 1
-                    elif par_spec_me[i, j] == mis_maj or par_spec_me[i, j] == mis_min or \
-                            par_spec_me[i, j] == maj_mis or par_spec_me[i, j] == min_mis:
-                        par_spec_me[i, j] = 0
+        n_haps, n_markers = gmat.shape
+        n_ind = n_haps // 2
+        out = np.zeros((n_ind, n_markers), dtype=np.int8)
+        alt = alleles[1]
+        has_missing = (len(alleles) == 3)
+        mis = alleles[2] if has_missing else -127
+        for i in range(n_ind):
+            r1 = 2 * i
+            r2 = r1 + 1
+            for j in range(n_markers):
+                a = gmat[r1, j]
+                b = gmat[r2, j]
+                if has_missing and (a == mis or b == mis):
+                    out[i, j] = 0
+                else:
+                    d = 0
+                    if a == alt:
+                        d += 1
+                    if b == alt:
+                        d += 1
+                    out[i, j] = d - 1   # 0,1,2 → -1,0,1
+        return out
     else:
-        par_spec_me = gmat - 1
-    
-    return par_spec_me
+        n_ind, n_markers = gmat.shape
+        out = np.zeros((n_ind, n_markers), dtype=np.int8)
+        for i in range(n_ind):
+            for j in range(n_markers):
+                g = gmat[i, j]
+                if g == 0 or g == 1 or g == 2:
+                    out[i, j] = g - 1
+                else:
+                    out[i, j] = 0
+        return out
+
 
 @njit(fastmath=True)
 def derivebv(par_spec_me, meff):

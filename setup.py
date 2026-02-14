@@ -5,16 +5,15 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="PyMSQ",
-    version="0.1.1",
+    version="0.1.2",
     author="Abdulraheem Musa, Norbert Reinsch",
     author_email="musa@fbn-dummerstorf.de, reinsch@fbn-dummerstorf.de",
-    description="A Python package for estimating Mendelian sampling-related quantities",
+    description="A Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/aromemusa/PyMSQ",
-    packages=find_packages(),
+    packages=find_packages(include=["PyMSQ", "PyMSQ.*"]),
     license="MIT",
-    download_url="https://github.com/aromemusa/PyMSQ/dist/PyMSQ-0.1.1.tar.gz",
     keywords=["Mendelian sampling", "variance", "covariance", "similarity", "selection", "haplotype diversity"],
     python_requires=">=3.8",
     install_requires=[

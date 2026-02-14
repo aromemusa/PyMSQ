@@ -1,7 +1,7 @@
 # Illustration: Utilizing Functions of PyMSQ
 
 **Authors:** Abdulraheem Musa and Norbert Reinsch  
-**Last Updated:** 08.04.2025
+**Last Updated:** 14.02.2026
 
 ## Introduction
 This guide demonstrates **practical applications** of **PyMSQ** functions using an example dataset of **Holstein-Friesian cattle**. PyMSQ is a **comprehensive tool** for deriving Mendelian sampling–related quantities such as (co)variances, correlations, and similarity matrices. The workflow involves:
@@ -33,10 +33,6 @@ from PyMSQ import msq
 
 ```
 
-    C:\Users\musa\AppData\Roaming\Python\Python39\site-packages\pandas\core\arrays\masked.py:60: UserWarning: Pandas requires version '1.3.6' or newer of 'bottleneck' (version '1.3.5' currently installed).
-      from pandas.core import (
-    
-
 Note: Ensure you have installed PyMSQ (e.g., pip install PyMSQ).
 
 ## 2. Data Importation and Preparation
@@ -48,7 +44,7 @@ We use an example Holstein-Friesian cattle dataset included with PyMSQ. It compr
 - **Marker effects** for key milk traits (fat, protein, pH),
 - And **phenotypic**/**group** information.
 
-This dataset is detailed in Musa and Reinsch [1] and derived from prior studies [2, 3]. You can substitute your own data if it matches the input format described below.
+This dataset is detailed in Musa and Reinsch [1,2] and derived from prior studies [3, 4]. You can substitute your own data if it matches the input format described below.
 
 ### 2.2. Loading Example Data
 - **Function**: `msq.load_package_data()`
@@ -527,7 +523,7 @@ print("Zygotic similarity for parent pairs:\n", sim_zygotes)
 ## 3.5. Computing Selection Criteria
 **Function**: `msq.selstrat(gmat, meff, group, **kwargs)`
 
-**Purpose**:  Calculate GEBV [4], usefulness criterion (UC) [5], or multi-trait index (adapted from [6]) for gametes or zygotes.
+**Purpose**:  Calculate GEBV [5], usefulness criterion (UC) [7], or multi-trait index (adapted from [7]) for gametes or zygotes.
 
 
 ```python
@@ -599,7 +595,7 @@ print("Zygotic approach (GEBV):\n", zygote_gebv)
 Key:
 - `"gebv"` => basic GEBVs
 - `"uc"` => usefulness criterion => GEBV + k * MSV weighting (requires `prop_sel` & `msvmsc`)
-- `"index"` => GEBV + k * MSV weighting (requires `prop_sel` & ``msvmsc```)
+- `"index"` => GEBV + k * MSV weighting (requires `prop_sel` & `msvmsc`)
 
 ## Concluding Remarks
 This illustration walks through typical PyMSQ workflows, from data loading to Mendelian sampling analysis, similarity matrix generation, and selection strategy application. Adjust parameters, subset IDs, or marker maps to match your breeding context. For more advanced or large-scale scenarios (e.g., thousands of animals, high-density markers), you may want to split data by chromosome.
@@ -607,14 +603,16 @@ This illustration walks through typical PyMSQ workflows, from data loading to Me
 If you have questions or feature requests, please consult the PyMSQ GitHub repository for issue reporting and community support.
 
 ## References
-1. Musa, A. A., & Reinsch, N. (2025). A similarity matrix for hedging haplotype diversity among parents in genomic selection. *Journal of Animal Breeding and Genetics*, https://doi.org/10.1111/jbg.12930.
+1. Musa, A. A., & Reinsch, N. (2026). PyMSQ: a Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection. *BMC Bioinformatics*, https://doi.org/10.1186/s12859-026-06392-5.
 
-2. Melzer, N., Wittenburg, D., & Repsilber, D. (2013). Integrating milk metabolite profile information for the prediction of traditional milk traits based on SNP information for Holstein cows. *PLoS ONE*, *8*, e70256. 
+2. Musa, A. A., & Reinsch, N. (2025). A similarity matrix for hedging haplotype diversity among parents in genomic selection. *Journal of Animal Breeding and Genetics*, https://doi.org/10.1111/jbg.12930.
 
-3. Hampel, A., Teuscher, F., Gomez-Raya, L., Doschoris, M., & Wittenburg, D. (2018). Estimation of recombination rate and maternal linkage disequilibrium in half-sibs. *Frontiers in Genetics*, *9* (JUN), 186.
+3. Melzer, N., Wittenburg, D., & Repsilber, D. (2013). Integrating milk metabolite profile information for the prediction of traditional milk traits based on SNP information for Holstein cows. *PLoS ONE*, https://doi.org/10.1371/journal.pone.0070256. 
 
-4. Meuwissen, T. H. E., Hayes, B. J., & Goddard, M. E. (2001). Prediction of total genetic value using genome-wide dense marker maps. *Genetics*, *157*, 1819–1829.
+4. Hampel, A., Teuscher, F., Gomez-Raya, L., Doschoris, M., & Wittenburg, D. (2018). Estimation of recombination rate and maternal linkage disequilibrium in half-sibs. *Frontiers in Genetics*, https://doi.org/10.3389/fgene.2018.00186.
 
-5. Lehermeier, C., Teyssèdre, S., & Schön, C. C. (2017). Genetic gain increases by applying the usefulness criterion with improved variance prediction in selection of crosses. *Genetics*, *207*, 1651–1661.
+5. Meuwissen, T. H. E., Hayes, B. J., & Goddard, M. E. (2001). Prediction of total genetic value using genome-wide dense marker maps. *Genetics*, https://doi.org/10.1093/genetics/157.4.1819.
 
-6. Bijma, P., Wientjes, Y. C. J., & Calus, M. P. L. (2020). Breeding top genotypes and accelerating response to gametic variance. *Genetics*, *214*, 91–107.
+6. Lehermeier, C., Teyssèdre, S., & Schön, C. C. (2017). Genetic gain increases by applying the usefulness criterion with improved variance prediction in selection of crosses. *Genetics*, https://doi.org/10.1534/genetics.117.300403.
+
+7. Bijma, P., Wientjes, Y. C. J., & Calus, M. P. L. (2020). Breeding top genotypes and accelerating response to gametic variance. *Genetics*, https://doi.org/10.1534/genetics.119.302643.

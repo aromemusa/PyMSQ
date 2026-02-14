@@ -1,25 +1,25 @@
-# PyMSQ: Estimating Mendelian Sampling-Related Quantities in Python
-PyMSQ is an open-source Python package that enables breeders, geneticists, and quantitative biologists to estimate Mendelian sampling–related metrics—including variance, covariance, and haplotype-based similarities—in both plant and animal species. For simplicity, PyMSQ consists of a single module, [`msq`](docs/documentation_msq.md). 
+# PyMSQ: a Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection
+
+PyMSQ is an open-source Python package that enables breeders, geneticists, and quantitative biologists to estimate Mendelian sampling–related metrics—including variance, covariance, and haplotype-based similarities—in both plant and animal species. For simplicity, PyMSQ consists of a single module, [`msq`](docs/documentation_msq.md).
 
 ## Key Features
-- Within-Family Covariance
-Constructs population-specific covariance matrices that capture within-family linkage disequilibrium, reflecting recombination patterns and phased marker data.
+- **Within-Family Covariance**  
+  Constructs population-specific covariance matrices that capture within-family linkage disequilibrium, reflecting recombination patterns and phased marker data.
 
-- Mendelian Sampling (Co)Variance
-Estimates Mendelian sampling variance (MSV) for single or multiple traits, as well as covariances (MSCs), crucial for maintaining genetic diversity and controlling inbreeding.
+- **Mendelian Sampling (Co)Variance**  
+  Estimates Mendelian sampling variance (MSV) for single or multiple traits, as well as covariances (MSCs), crucial for maintaining genetic diversity and controlling inbreeding.
 
-- Similarity Matrices
-Computes haplotype-based similarity matrices between individuals (or zygotes), focusing on shared heterozygous segments that drive within-family genetic variation.
+- **Similarity Matrices**  
+  Computes haplotype-based similarity matrices between individuals (or zygotes), focusing on shared heterozygous segments that drive within-family genetic variation.
 
-- Selection Criteria
-Offers functions to derive selection strategies (e.g., GEBVs, usefulness criteria, index-based approaches) that leverage MSV/MSC or similarity measures.
+- **Selection Criteria**  
+  Offers functions to derive selection strategies (e.g., GEBVs, usefulness criteria, index-based approaches) that leverage MSV/MSC or similarity measures.
 
 ## Installation
 PyMSQ is available on PyPI and can be installed via:
 
-
-```python
-pip install PyMSQ
+```bash
+python -m pip install PyMSQ
 ```
     
 
@@ -68,6 +68,20 @@ A tutorial detailing each function’s parameters, usage examples, and best prac
 4. **Deriving** haplotype-based similarity,
 
 5. **Applying** selection strategies using advanced metrics.
+
+
+## Citation
+If you use PyMSQ in academic work, please cite the following papers:
+
+1. Musa, A. A., & Reinsch, N. (2026). PyMSQ: a Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection. *BMC Bioinformatics*, https://doi.org/10.1186/s12859-026-06392-5.
+
+2. Musa, A. A., & Reinsch, N. (2025). A similarity matrix for hedging haplotype diversity among parents in genomic selection. *Journal of Animal Breeding and Genetics*, https://doi.org/10.1111/jbg.12930.
+
+
+
+## Funding
+This study was supported by the Bundesanstalt für Landwirtschaft und Ernährung (BLE) under Grant 281B101516.
+
 
 
 ## Getting Help

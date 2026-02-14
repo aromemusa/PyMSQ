@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: "If you use PyMSQ, please cite the following papers."
+title: "PyMSQ"
+type: software
+authors:
+  - family-names: Musa
+    given-names: Abdulraheem Arome
+  - family-names: Reinsch
+    given-names: Norbert
+repository-code: "https://github.com/aromemusa/PyMSQ"
+url: "https://github.com/aromemusa/PyMSQ"
+license: MIT
+keywords:
+  - Mendelian sampling
+  - variance
+  - covariance
+  - similarity
+  - selection
+  - haplotype diversity
+  - genomic selection
+
+references:
+  type: article
+  authors:
+    - family-names: Musa
+      given-names: Abdulraheem Arome
+    - family-names: Reinsch
+      given-names: Norbert
+  title: "PyMSQ: a Python package for fast Mendelian sampling (co)variance and haplotype-based similarity in genomic selection"
+  journal: "BMC Bioinformatics"
+  year: 2026
+  doi: "10.1186/s12859-026-06392-5"
+
+references:
+  - type: article
+    authors:
+      - family-names: Musa
+        given-names: Abdulraheem Arome
+      - family-names: Reinsch
+        given-names: Norbert
+    title: "A similarity matrix for hedging haplotype diversity among parents in genomic selection"
+    journal: "Journal of Animal Breeding and Genetics"
+    year: 2025
+    doi: "10.1111/jbg.12930"
