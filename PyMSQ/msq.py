@@ -4,58 +4,73 @@ import sys
 import math
 import numpy as np
 import pandas as pd
-import pkg_resources
+from importlib import resources
 from scipy.stats import norm
 from numba import njit
 
 
-
-def load_package_data():
+def load_package_data(package: str = "PyMSQ"):
     """
     Load genetic data embedded within the package and return them in a dictionary.
+    Parameters
+    ----------
+    package : str
+        Top-level package name that contains the data directory (default: "PyMSQ").
     Returns
     -------
     dict of pandas.DataFrame
         Keys:
-            - 'chromosome' -> chromosome map data
-            - 'marker_effects' -> marker effects for traits
-            - 'genotype' -> phased genotype matrix
-            - 'group' -> group/classification data
-            - 'pedigree' -> pedigree information
+            - 'chromosome_data'     -> chromosome map data
+            - 'marker_effect_data'  -> marker effects for traits
+            - 'genotype_data'       -> phased genotype matrix
+            - 'group_data'          -> group/classification data
+            - 'pedigree_data'       -> pedigree information
     Raises
     ------
     FileNotFoundError
         If any of the data files are not found in the package resources.
     """
     data_files = {
-    'chromosome_data':     'data/chr.txt',
-    'marker_effect_data':  'data/effects.txt',
-    'genotype_data':       'data/phase.txt',
-    'group_data':          'data/group.txt',
-    'pedigree_data':       'data/pedigree.txt'
+        "chromosome_data":    "data/chr.txt",
+        "marker_effect_data": "data/effects.txt",
+        "genotype_data":      "data/phase.txt",
+        "group_data":         "data/group.txt",
+        "pedigree_data":      "data/pedigree.txt",
     }
     data_frames = {}
-    for key, file_path in data_files.items():
+    for key, rel_path in data_files.items():
         try:
-            # Read data from the package resource as a stream:
-            with pkg_resources.resource_stream(__name__, file_path) as stream:
-                # For genotype/pedigree, assume no header; for others, default to standard usage
-                if key in ['genotype_data']:
-                    df = pd.read_table(stream, sep=" ", header=None)
+            # Preferred: Traversable API (works for wheels/zips and local installs)
+            traversable = resources.files(package).joinpath(rel_path)
+            with resources.as_file(traversable) as fpath:
+                if key == "genotype_data":
+                    df = pd.read_table(fpath, sep=" ", header=None)
                 else:
-                    df = pd.read_table(stream, sep=" ")
+                    df = pd.read_table(fpath, sep=" ")
                 data_frames[key] = df
-        except FileNotFoundError:
-            # If pkg_resources fails to open, it raises a FileNotFoundError
-            raise FileNotFoundError(
-                f"Data file '{file_path}' not found in package resources. "
-                "Check that it exists in 'PyMSQ/data/' and is listed under package_data in setup.py."
-            )
+        except (FileNotFoundError, ModuleNotFoundError, AttributeError):
+            # Fallback: open as a binary stream directly from package resources
+            # (useful if files()/as_file() isn't available/behaves oddly)
+            try:
+                with resources.open_binary(package, rel_path) as stream:
+                    if key == "genotype_data":
+                        df = pd.read_table(stream, sep=" ", header=None)
+                    else:
+                        df = pd.read_table(stream, sep=" ")
+                    data_frames[key] = df
+            except FileNotFoundError as e:
+                raise FileNotFoundError(
+                    f"Data file '{rel_path}' not found in package '{package}'. "
+                    "Check that it exists under 'PyMSQ/data/' and is included in the built distribution "
+                    "(package_data / MANIFEST.in)."
+                ) from e
     return data_frames
 
 
 if __name__ == "__main__":
-    load_package_data()
+    # smoke test
+    d = load_package_data()
+    print({k: v.shape for k, v in d.items()})
 
 
 def expldmat(gmap, group, **kwargs):
@@ -281,11 +296,12 @@ def calculate_mspar_spec_me(gmat, alleles):
     """
     n_ind = gmat.shape[0] // 2
     n_markers = gmat.shape[1]
-    out = np.zeros((n_ind, n_markers), dtype=np.int8)
+    out = np.empty((n_ind, n_markers), dtype=np.int8)
     major = alleles[0]
     minor = alleles[1]
     has_missing = (len(alleles) == 3)
-    missing = alleles[2] if has_missing else 0
+    missing = alleles[2] if has_missing else np.int8(-127)  # sentinel, not used unless has_missing
+    
     for i in range(n_ind):
         r1 = 2 * i
         r2 = r1 + 1
@@ -293,10 +309,6 @@ def calculate_mspar_spec_me(gmat, alleles):
             a = gmat[r1, j]
             b = gmat[r2, j]
             if has_missing and (a == missing or b == missing):
-                out[i, j] = 0
-            elif a == major and b == major:
-                out[i, j] = 0
-            elif a == minor and b == minor:
                 out[i, j] = 0
             elif a == major and b == minor:
                 out[i, j] = 1
@@ -1323,37 +1335,47 @@ def simmat_z(gmat, gmap, meff, group, exp_ldmat, sub_id, indwt, chrinterest, sav
 @njit
 def calculate_par_spec_me(gmat, alleles, haplotype):
     """
-    Recodes haplotypes for parent-specific marker effects.
-    Args:
-        gmat (np.ndarray): Genetic marker matrix.
-        alleles (list): List of alleles.
-        haplotype (bool): Flag indicating whether to gmat is haplotype data.
-    Returns:
-        np.ndarray: recoded haplotpes matrix.
+    Robust recoding to {-1,0,+1}.
+    If haplotype=True:
+      gmat is (2*n_ind, n_markers) allele-coded haplotypes
+      alleles = [major, minor] or [major, minor, missing]
+      Output (hom-vs-het):
+        major/major -> +1
+        major/minor (either order) -> 0
+        minor/minor -> -1
+        missing anywhere -> 0
+        anything else -> 0
+    If haplotype=False:
+      gmat is (n_ind, n_markers) genotypes. Commonly dosage-coded:
+        0/1/2 -> -1/0/+1 via (g-1)
+      Also accepts already-coded -1/0/+1 (passes through).
+      If missing is provided in alleles, missing -> 0.
+      Anything else -> 0.
     """
-    # Sum up rows and columns
+    has_missing = (len(alleles) == 3)
+    missing = alleles[2] if has_missing else np.int8(-127)  # sentinel that won't match typical data
     if haplotype:
-        n_haps, n_markers = gmat.shape
-        n_ind = n_haps // 2
-        out = np.zeros((n_ind, n_markers), dtype=np.int8)
-        alt = alleles[1]
-        has_missing = (len(alleles) == 3)
-        mis = alleles[2] if has_missing else -127
+        n_ind = gmat.shape[0] // 2
+        n_markers = gmat.shape[1]
+        out = np.empty((n_ind, n_markers), dtype=np.int8)
+        major = alleles[0]
+        minor = alleles[1]
         for i in range(n_ind):
             r1 = 2 * i
             r2 = r1 + 1
             for j in range(n_markers):
                 a = gmat[r1, j]
                 b = gmat[r2, j]
-                if has_missing and (a == mis or b == mis):
+                if has_missing and (a == missing or b == missing):
+                    out[i, j] = 0
+                elif a == major and b == major:
+                    out[i, j] = 1
+                elif a == minor and b == minor:
+                    out[i, j] = -1
+                elif (a == major and b == minor) or (a == minor and b == major):
                     out[i, j] = 0
                 else:
-                    d = 0
-                    if a == alt:
-                        d += 1
-                    if b == alt:
-                        d += 1
-                    out[i, j] = d - 1   # 0,1,2 → -1,0,1
+                    out[i, j] = 0
         return out
     else:
         n_ind, n_markers = gmat.shape
@@ -1361,8 +1383,15 @@ def calculate_par_spec_me(gmat, alleles, haplotype):
         for i in range(n_ind):
             for j in range(n_markers):
                 g = gmat[i, j]
-                if g == 0 or g == 1 or g == 2:
-                    out[i, j] = g - 1
+                # missing (if provided)
+                if has_missing and g == missing:
+                    out[i, j] = 0
+                # dosage-coded genotype (most common): 0/1/2 -> -1/0/+1
+                elif g == 0 or g == 1 or g == 2:
+                    out[i, j] = np.int8(g - 1)
+                # already-coded additive genotype: -1/0/+1
+                elif g == -1 or g == 0 or g == 1:
+                    out[i, j] = np.int8(g)
                 else:
                     out[i, j] = 0
         return out

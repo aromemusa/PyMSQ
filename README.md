@@ -62,13 +62,13 @@ similarity = msq.simmat(
 ## Tutorial
 A tutorial detailing each function’s parameters, usage examples, and best practices can be found [`here`](docs/Illustration_of_PyMSQ_functions.md). This tutorial walks you through:
 
-1. **Loading** your own data or the bundled Holstein-Friesian dataset,
+1. **Loading** your own data or the bundled Holstein-Friesian dataset
 
-2. **Building** LD matrices for each chromosome,
+2. **Building** LD matrices for each chromosome
 
-3. **Estimating** Mendelian sampling (co)variances,
+3. **Estimating** Mendelian sampling (co)variances
 
-4. **Deriving** haplotype-based similarity,
+4. **Deriving** haplotype-based similarity
 
 5. **Applying** selection strategies using advanced metrics.
 
@@ -80,8 +80,7 @@ If you use PyMSQ in academic work, please cite the following papers:
 
 2. Musa, A. A., & Reinsch, N. (2025). A similarity matrix for hedging haplotype diversity among parents in genomic selection. *Journal of Animal Breeding and Genetics*, https://doi.org/10.1111/jbg.12930.
 
-3. Zenodo (software version v0.1.2): https://doi.org/10.5281/zenodo.18643470
-
+3. Zenodo (software version v0.1.3): https://doi.org/10.5281/zenodo.18643470
 
 
 ## Funding
