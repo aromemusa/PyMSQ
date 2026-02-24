@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use PyMSQ, please cite the following papers."
+message: "If you use PyMSQ, please cite the PyMSQ software paper. If you specifically use the haplotype-based similarity matrix for diversity management, also cite the method paper."
 title: "PyMSQ"
 type: software
 authors:
@@ -19,7 +19,12 @@ keywords:
   - haplotype diversity
   - genomic selection
 
-references:
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.18760267
+    description: Zenodo archive for this release
+
+preferred-citation:
   type: article
   authors:
     - family-names: Musa
